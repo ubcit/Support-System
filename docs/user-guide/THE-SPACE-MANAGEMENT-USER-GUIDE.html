@@ -1,0 +1,1049 @@
+<html><head><style>body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 2rem; } h1, h2, h3 { color: #111; margin-top: 2rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; } h1 { font-size: 2.5em; text-align: center; border-bottom: none; } blockquote { border-left: 4px solid #0366d6; padding-left: 1rem; color: #586069; background: #f6f8fa; padding: 10px; margin: 1.5rem 0; } code { background: #f6f8fa; padding: 0.2em 0.4em; border-radius: 3px; font-family: monospace; } pre { background: #f6f8fa; padding: 1rem; overflow-x: auto; border-radius: 6px; } img { max-width: 100%; height: auto; } @media print { body { padding: 0; max-width: 100%; } h1, h2 { page-break-after: avoid; } h1 { page-break-before: always; } }</style></head><body><h1>01. Introduction</h1>
+<p>Welcome to THE-SPACE-MANAGEMENT, an advanced, AI-assisted platform designed to streamline operations, project management, and customer communication. </p>
+<h2>What THE-SPACE-MANAGEMENT Is</h2>
+<p>THE-SPACE-MANAGEMENT is a centralized Work OS (Operating System) that bridges the gap between customer communication (via WhatsApp) and internal operational execution. It is designed specifically for service-oriented teams, clinics, and agencies that need to track incoming requests, triage issues efficiently, and manage ongoing projects without losing critical context.</p>
+<h2>Problems It Solves</h2>
+<ul>
+<li><strong>Lost Customer Context:</strong> Instead of having customer issues buried in isolated WhatsApp chats, every message is tied directly to their CRM profile and any resulting tasks.</li>
+<li><strong>Triage Bottlenecks:</strong> Manual ticket triage is slow. Our system uses Artificial Intelligence to instantly read incoming messages, summarize the core issue, and even suggest the correct task assignments.</li>
+<li><strong>Scattered Workflows:</strong> Replaces disjointed tools (spreadsheets, separate task managers, and messaging apps) with one unified command center.</li>
+</ul>
+<h2>Core Philosophy</h2>
+<p>We believe that technology should serve as a co-pilot, not just a database. </p>
+<ul>
+<li><strong>Data is Connected:</strong> A task is never just a task; it is linked to a project, a customer, and a conversation.</li>
+<li><strong>AI is an Assistant, Not a Replacement:</strong> The system suggests, but humans approve. You remain in complete control.</li>
+<li><strong>Frictionless Action:</strong> Every screen is designed for speed. If you need to search for something, the Global Command Palette gets you there in one keystroke.</li>
+</ul>
+<h2>AI-Assisted Workflow</h2>
+<p>When a customer sends a message to your organization:</p>
+<ol>
+<li><strong>AI Ingestion:</strong> The AI immediately reads the message.</li>
+<li><strong>Analysis:</strong> It extracts the intent, summarizes the problem, and determines urgency.</li>
+<li><strong>Drafting:</strong> It automatically drafts a task (e.g., &quot;Fix Printer at Clinic A&quot;).</li>
+<li><strong>Approval:</strong> A manager (Boss) reviews the suggestion, approves it with one click, and the system assigns it to the best available employee.</li>
+</ol>
+<blockquote>
+<p>[!TIP]
+You do not have to use AI for everything. You can always manually create tasks and route conversations if you prefer total manual control.</p>
+</blockquote>
+<h2>System Architecture Overview</h2>
+<p>The platform is broken down into four distinct &quot;Hubs&quot;:</p>
+<ol>
+<li><strong>Conversation Center:</strong> The unified inbox for all external communications.</li>
+<li><strong>Task Platform (Kanban):</strong> The execution engine where Employees actually do the work.</li>
+<li><strong>Project Management:</strong> The macro-level view of long-term goals and milestones.</li>
+<li><strong>Customer CRM:</strong> The repository of all customer relationships and historical data.</li>
+</ol>
+<h2>Main User Roles</h2>
+<p>The platform respects strict access controls based on three main roles:</p>
+<ol>
+<li><strong>Administrator (SysAdmin):</strong> Handles the configuration of the system. Manages integrations (WhatsApp, AI), system health, global settings, and user provisioning.</li>
+<li><strong>Boss (Manager):</strong> The orchestrator. Bosses receive customer issues, review AI suggestions, assign work, monitor project health, and review analytics.</li>
+<li><strong>Employee (Technician/Agent):</strong> The executor. Employees log in, view their assigned tasks on their personal dashboard, execute the work, communicate with customers, and mark tasks as done.</li>
+</ol>
+<h2>Typical Daily Workflow</h2>
+<p>A standard day in the system looks like this:</p>
+<ul>
+<li><strong>08:00 AM:</strong> A Customer sends a WhatsApp message reporting a broken machine.</li>
+<li><strong>08:01 AM:</strong> The AI Pipeline processes the message and queues a drafted Task.</li>
+<li><strong>08:15 AM:</strong> The Boss logs in, reviews the drafted Task, adds a &quot;Boss Note&quot;, and assigns it to an Employee.</li>
+<li><strong>08:30 AM:</strong> The Employee opens their dashboard, sees the new Task, drags it to &quot;In Progress&quot;, and travels to the site.</li>
+<li><strong>10:00 AM:</strong> The Employee fixes the machine, takes a photo, uploads it as an attachment, and marks the Task as &quot;Done&quot;.</li>
+<li><strong>10:05 AM:</strong> The system automatically logs the resolution time, updating the Boss&#39;s velocity metrics on the Reports Dashboard.</li>
+</ul>
+<p>[Screenshot: High-Level Dashboard Overview]</p>
+<h1>02. Getting Started</h1>
+<p>This guide will walk you through your first time logging into the platform, navigating the interface, and mastering the basic productivity tools available to every user.</p>
+<h2>Logging In</h2>
+<ol>
+<li>Navigate to the platform URL provided by your Administrator.</li>
+<li>Enter your Email Address and Password.</li>
+<li>Click <strong>Sign In</strong>.</li>
+</ol>
+<blockquote>
+<p>[!WARNING]
+If you forgot your password, contact your Administrator. For security reasons, automated password resets may be disabled depending on your company&#39;s security policies.</p>
+</blockquote>
+<h2>First Workspace Setup</h2>
+<p>If you are the first user (Admin) logging into a fresh installation, you will be prompted to create your first <strong>Workspace</strong>. </p>
+<ul>
+<li>A Workspace represents a distinct business unit, department, or company branch.</li>
+<li>You must create at least one Workspace before you can invite Employees or create Projects.</li>
+</ul>
+<h2>Dashboard Overview</h2>
+<p>Once logged in, you will land on your default Dashboard. The contents of this dashboard depend entirely on your Role:</p>
+<ul>
+<li><strong>Administrators:</strong> See System Health, Server Metrics, and recent Error Logs.</li>
+<li><strong>Bosses:</strong> See Executive Analytics, Task Velocity, and AI Triage Queues.</li>
+<li><strong>Employees:</strong> See their personal Kanban board, specifically filtered to show only Tasks assigned to them.</li>
+</ul>
+<p>[Screenshot: Example Employee Dashboard]</p>
+<h2>Navigation</h2>
+<p>The platform uses a unified sidebar on the left side of the screen.</p>
+<ul>
+<li><strong>Top Section:</strong> Core operational hubs (Dashboards, Tasks, Conversations).</li>
+<li><strong>Middle Section:</strong> Management hubs (Projects, CRM, Employees).</li>
+<li><strong>Bottom Section:</strong> System settings and your personal Profile.</li>
+</ul>
+<p>On mobile devices, the sidebar collapses into a &quot;hamburger&quot; menu (three horizontal lines) in the top left corner.</p>
+<h2>Profile</h2>
+<p>Click on your name in the bottom left corner to access your Profile.
+Here you can:</p>
+<ul>
+<li>Update your Name and Email.</li>
+<li>Change your Password.</li>
+<li>Configure your personal notification preferences (e.g., mute email alerts).</li>
+</ul>
+<h2>Notifications</h2>
+<p>Look for the <strong>Bell Icon</strong> in the top right corner of the screen.</p>
+<ul>
+<li>A red dot indicates unread notifications.</li>
+<li>Click the bell to open the Notification Drawer.</li>
+<li>Notifications inform you of important events: &quot;You were assigned a new task,&quot; &quot;A project is overdue,&quot; or &quot;A new WhatsApp message arrived.&quot;</li>
+<li>You can mark notifications as read individually or click <strong>Mark all as read</strong>.</li>
+</ul>
+<h2>Dark Mode</h2>
+<p>The platform fully supports Dark Mode to reduce eye strain in low-light environments.</p>
+<ul>
+<li>Click the <strong>Sun/Moon</strong> icon next to the Notification Bell in the top right corner.</li>
+<li>This will instantly toggle the interface between Light Mode and Dark Mode.</li>
+<li>Your preference is saved locally on your device.</li>
+</ul>
+<h2>Search</h2>
+<p>You don&#39;t need to click through five menus to find what you&#39;re looking for. The platform features a powerful Global Search.</p>
+<ul>
+<li>Click the <strong>Search Bar</strong> at the top of the screen (or use the Command Palette, explained below).</li>
+<li>Type a Customer&#39;s name, a Task title, a Project name, or a Phone Number.</li>
+<li>The system will search across all databases simultaneously and provide clickable links directly to the result.</li>
+</ul>
+<h2>Command Palette</h2>
+<p>The Command Palette is the ultimate productivity tool for power users. It allows you to navigate the entire system using only your keyboard.</p>
+<p><strong>How to open it:</strong></p>
+<ul>
+<li>Press <code>CMD + K</code> (Mac) or <code>CTRL + K</code> (Windows) from anywhere in the app.</li>
+</ul>
+<p><strong>What you can do:</strong></p>
+<ul>
+<li>Start typing to search for Customers, Tasks, Projects, or Employees.</li>
+<li>Use the <strong>Up/Down Arrow Keys</strong> to select a result.</li>
+<li>Press <strong>Enter</strong> to instantly navigate to that record.</li>
+</ul>
+<blockquote>
+<p>[!TIP]
+Master the Command Palette. It is the fastest way to move through the system without touching your mouse.</p>
+</blockquote>
+<h2>Keyboard Shortcuts</h2>
+<p>In addition to the Command Palette, the system supports various shortcuts to speed up your workflow:</p>
+<ul>
+<li><code>CMD + K</code> / <code>CTRL + K</code>: Open Command Palette</li>
+<li><code>ESC</code>: Close any open modal, dialog, or the Command Palette.</li>
+<li><code>Click outside</code>: Clicking outside of a popup window will always safely close it.</li>
+</ul>
+<h1>03. Administrator Guide</h1>
+<p>As an Administrator (SysAdmin), you hold the keys to the platform. Your role is not to manage daily tasks, but to ensure the system is configured correctly, securely, and is running smoothly.</p>
+<blockquote>
+<p>[!WARNING]
+With great power comes great responsibility. Actions taken in the Administrator panels can alter the platform&#39;s behavior for all users. Proceed with caution.</p>
+</blockquote>
+<h2>Workspace Settings</h2>
+<p>Workspaces divide your platform into logical business units. </p>
+<ul>
+<li>Navigate to <strong>Settings &gt; Workspaces</strong>.</li>
+<li>You can create multiple workspaces (e.g., &quot;IT Support&quot;, &quot;HR Management&quot;).</li>
+<li>Projects and Tasks belong to specific workspaces, allowing you to isolate data between departments.</li>
+</ul>
+<h2>Company Information</h2>
+<p>Maintain your global company profile under <strong>Settings &gt; Company</strong>.</p>
+<ul>
+<li>Upload your company logo (this will reflect in the top left corner of the sidebar).</li>
+<li>Set your primary timezone. (This is critical for accurate SLA and response time calculations).</li>
+</ul>
+<h2>Employees, Roles &amp; Permissions</h2>
+<p>You control who has access to the platform.</p>
+<ul>
+<li><strong>Adding Employees:</strong> Navigate to <strong>Employee Management</strong>. Create a new user by providing their Name, Email, and Job Title.</li>
+<li><strong>Roles:</strong> The system uses Role-Based Access Control (RBAC). <ul>
+<li><code>Admin</code>: Full system access.</li>
+<li><code>Boss</code>: Management access (Dashboards, Project creation, AI approval).</li>
+<li><code>Employee</code>: Execution access (Kanban board, specific task assignments).</li>
+</ul>
+</li>
+<li><strong>Archiving:</strong> You cannot hard-delete an employee to preserve historical task records. Instead, you <strong>Archive</strong> them, which revokes their login access immediately.</li>
+</ul>
+<h2>Projects</h2>
+<p>While Bosses manage daily projects, Administrators define the global Project parameters.</p>
+<ul>
+<li>Ensure that Projects are mapped correctly to Customers in the CRM.</li>
+</ul>
+<h2>AI Configuration</h2>
+<p>The platform&#39;s AI Copilot requires proper configuration.</p>
+<ul>
+<li><strong>API Keys:</strong> Navigate to <strong>Integrations &gt; AI Settings</strong>. Enter your OpenAI / Anthropic API keys securely.</li>
+<li><strong>Prompt Engineering:</strong> You can adjust the &quot;System Prompt&quot; that dictates how the AI behaves. If you want the AI to be more formal with customers, or extract specific serial numbers, adjust the prompt here.</li>
+</ul>
+<h2>WhatsApp Configuration</h2>
+<p>To connect the Conversation Center to the real world:</p>
+<ul>
+<li>Navigate to <strong>Integrations &gt; WhatsApp Cloud API</strong>.</li>
+<li>Enter your Meta Phone Number ID, Access Token, and verify the Webhook Secret.</li>
+<li>If this connection breaks, incoming messages will fail to appear in the Inbox.</li>
+</ul>
+<h2>Email Configuration</h2>
+<p>The system sends transactional emails (e.g., &quot;You have been assigned a task&quot;).</p>
+<ul>
+<li>Configure your SMTP host, port, username, and password in the <strong>Email Settings</strong>.</li>
+</ul>
+<h2>Workflow Configuration &amp; Rules Engine</h2>
+<p>Workflows dictate the columns on the Kanban board.</p>
+<ul>
+<li>Navigate to <strong>Workflows</strong>.</li>
+<li>You can define custom states (e.g., <code>To Do</code>, <code>In Progress</code>, <code>Awaiting Parts</code>, <code>Done</code>).</li>
+<li><strong>WIP Limits (Work In Progress):</strong> You can set a strict limit on specific columns. For example, setting a WIP limit of <code>3</code> on &quot;In Progress&quot; prevents a Boss from assigning a 4th simultaneous task to an Employee, preventing burnout.</li>
+</ul>
+<h2>Feature Flags</h2>
+<p>Testing a new workflow? Use Feature Flags.</p>
+<ul>
+<li>Under <strong>Settings &gt; Feature Flags</strong>, you can toggle specific experimental features on or off globally without requiring a developer to deploy code.</li>
+</ul>
+<h2>Health Monitor &amp; Logs</h2>
+<p>Your primary dashboard includes the <strong>System Status Widget</strong>.</p>
+<ul>
+<li><strong>Database Status:</strong> Checks if the platform can read/write data.</li>
+<li><strong>Redis Cache:</strong> Checks if the high-speed queue system is responsive.</li>
+<li><strong>Application Logs:</strong> View real-time error logs to diagnose issues (e.g., &quot;Failed to send WhatsApp message&quot;).</li>
+</ul>
+<h2>Backups &amp; System Maintenance</h2>
+<ul>
+<li>Database backups run automatically, but you should regularly verify their integrity.</li>
+<li>If a background queue stalls (e.g., tasks are not being assigned by AI), you can monitor queue workers from the server metrics dashboard.</li>
+</ul>
+<p>[Screenshot: Administrator Settings Panel]</p>
+<h1>04. Boss Guide</h1>
+<p>As a Boss (Manager), you are the orchestrator of the platform. You do not typically execute the manual labor; instead, you triage incoming problems, manage projects, assign work to Employees, and monitor performance.</p>
+<h2>Receiving Customer Problems</h2>
+<p>When a customer sends a WhatsApp message, it arrives in the <strong>Conversation Center</strong>.</p>
+<ul>
+<li>Your job is to monitor incoming issues.</li>
+<li>The system highlights unread messages in bold.</li>
+<li>If the AI Pipeline is active, the system may have already drafted a Task based on the customer&#39;s message.</li>
+</ul>
+<h2>AI Analysis &amp; Approving Task Creation</h2>
+<p>When a complex issue arrives, the AI Copilot will generate a summary and suggest a Task.</p>
+<ol>
+<li>Open the conversation.</li>
+<li>Look at the <strong>AI Summary</strong> panel on the right side of the screen.</li>
+<li>Review the AI&#39;s suggested Task Title and Urgency.</li>
+<li>If correct, click <strong>Approve &amp; Create Task</strong>. </li>
+<li>If incorrect, you can manually override the fields before creating the task.</li>
+</ol>
+<blockquote>
+<p>[!TIP]
+The AI is designed to save you typing time, but it lacks your managerial intuition. Always verify its suggestions before assigning a critical task.</p>
+</blockquote>
+<h2>Adding Boss Notes</h2>
+<p>Before assigning a task, you should add context.</p>
+<ul>
+<li>Open the Task details.</li>
+<li>Add a <strong>Boss Note</strong>. This is an internal, private instruction that only Employees can see (Customers never see this). </li>
+<li>Example: <em>&quot;Ahmed, please check the fuser unit first, it was replaced last month.&quot;</em></li>
+</ul>
+<h2>Selecting Projects</h2>
+<p>Tasks should not float aimlessly. They belong to Projects.</p>
+<ul>
+<li>When reviewing a Task, assign it to the appropriate active Project.</li>
+<li>This ensures that the Task&#39;s completion contributes to the Project&#39;s overall health and velocity metrics.</li>
+</ul>
+<h2>Reassigning Work &amp; Monitoring Employees</h2>
+<p>You control the flow of work.</p>
+<ul>
+<li>Navigate to the <strong>Task Hub</strong>.</li>
+<li>You can view Tasks in a Table or Kanban view.</li>
+<li>To reassign a task, click the assignee dropdown and select a different Employee.</li>
+<li>Use the <strong>WIP (Work in Progress)</strong> metrics to see if an Employee is overloaded. If an Employee has 5 tasks &quot;In Progress&quot;, do not assign them a 6th.</li>
+</ul>
+<h2>Tracking Progress &amp; Closing Issues</h2>
+<p>As Employees complete tasks, you will see the statuses change in real-time.</p>
+<ul>
+<li>A Task moving to &quot;Done&quot; automatically logs the completion timestamp.</li>
+<li>Once all Tasks related to a Customer&#39;s initial complaint are &quot;Done&quot;, you can mark the overarching Issue as <strong>Closed</strong>.</li>
+</ul>
+<h2>Reviewing Reports &amp; Dashboards</h2>
+<p>Data drives good management.</p>
+<ul>
+<li>Navigate to the <strong>Reports Hub</strong>.</li>
+<li>Here you can monitor:<ul>
+<li><strong>Task Completion Velocity:</strong> A 7-day rolling chart showing how many tasks your team completes daily.</li>
+<li><strong>Average Response Time:</strong> How quickly your team moves tasks from &quot;To Do&quot; to &quot;Done&quot;.</li>
+<li><strong>Employee Performance:</strong> Compare task closures across your workforce.</li>
+</ul>
+</li>
+</ul>
+<p>[Screenshot: Boss Executive Dashboard]</p>
+<h1>05. Employee Guide</h1>
+<p>As an Employee, the system is designed to keep you focused on execution. You will not see complex executive reports or billing dashboards. Your entire day revolves around your personal Task Dashboard.</p>
+<h2>Daily Workflow: Logging In</h2>
+<p>When you log in, you will land directly on the <strong>Employee Dashboard</strong>.</p>
+<ul>
+<li>This dashboard is automatically filtered to show <strong>only</strong> the Tasks assigned to you.</li>
+<li>You do not need to search for work; your Boss has already queued it up for you.</li>
+</ul>
+<h2>Viewing Assigned Tasks &amp; Priorities</h2>
+<p>Tasks are organized by Priority (Low, Normal, High, Urgent) and Due Date.</p>
+<ul>
+<li><strong>Red tags</strong> indicate Urgent tasks. Tackle these first.</li>
+<li>Click on any Task card to open the <strong>Task Details</strong> panel.</li>
+</ul>
+<h2>Task Details &amp; Customer Context</h2>
+<p>A Task contains everything you need to solve the problem.</p>
+<ul>
+<li><strong>Description:</strong> The core problem statement.</li>
+<li><strong>Boss Notes:</strong> Internal instructions from your manager (e.g., &quot;Check the warranty status first&quot;).</li>
+<li><strong>Linked Conversation:</strong> If this task originated from a WhatsApp message, you will see a link to the exact conversation history.</li>
+</ul>
+<h2>Reading Customer Conversations</h2>
+<p>You can click into the <strong>Conversation Center</strong> to read the exact words the customer sent.</p>
+<ul>
+<li>Understanding the customer&#39;s frustration or specific wording can help you diagnose the problem faster.</li>
+<li>Do not reply to the customer unless your company policy explicitly allows technicians to handle direct communication.</li>
+</ul>
+<h2>Viewing Attachments</h2>
+<p>Customers frequently send photos of broken equipment or error screens.</p>
+<ul>
+<li>Open the Conversation Center or the Task Details.</li>
+<li>Click <strong>View Attachment</strong> to see images or PDFs directly in your browser.</li>
+</ul>
+<h2>Writing Notes</h2>
+<p>As you work on a task, you must document your progress.</p>
+<ul>
+<li>Inside the Task Details, use the <strong>Internal Notes</strong> section.</li>
+<li>Write updates like, <em>&quot;Arrived on site. Diagnosed a faulty power supply. Ordering replacement.&quot;</em></li>
+<li>These notes are timestamped and visible to your Boss, providing a clear audit trail of your work.</li>
+</ul>
+<h2>Uploading Files</h2>
+<p>If you complete a physical repair, take a photo.</p>
+<ul>
+<li>Use the <strong>Upload Attachment</strong> button in the Task details to attach proof of resolution, signed delivery receipts, or diagnostic logs.</li>
+</ul>
+<h2>Completing Tasks &amp; Time Tracking</h2>
+<p>When the work is done, you must update the system.</p>
+<ol>
+<li>Drag the Task card from &quot;In Progress&quot; to <strong>Done</strong>.</li>
+<li>Alternatively, open the Task Details and click <strong>Mark as Complete</strong>.</li>
+<li>The system automatically records the exact timestamp you completed the task. This data is used to calculate your performance metrics, so always mark tasks done <em>immediately</em> after finishing the work.</li>
+</ol>
+<blockquote>
+<p>[!WARNING]
+Do not move tasks back to &quot;To Do&quot; after marking them &quot;Done&quot;. If a problem reoccurs, your Boss will create a new Task.</p>
+</blockquote>
+<h2>Dependencies &amp; Checklists</h2>
+<p>Some complex tasks contain <strong>Checklists</strong>.</p>
+<ul>
+<li>You must check off every sub-item before the system allows you to mark the main Task as &quot;Done&quot;.</li>
+<li>If your task has a <strong>Dependency</strong> (e.g., &quot;Awaiting Parts&quot;), you cannot move it to &quot;In Progress&quot; until the blocking task is completed.</li>
+</ul>
+<p>[Screenshot: Employee Personal Kanban Board]</p>
+<h1>06. Conversation Center</h1>
+<p>The Conversation Center is the unified communications hub. It transforms chaotic WhatsApp threads into structured, actionable tickets.</p>
+<h2>The Conversation List</h2>
+<p>The left side of the screen displays your active conversations.</p>
+<ul>
+<li>Conversations are sorted by the most recent message.</li>
+<li>Unread messages are bolded.</li>
+<li>A small badge indicates how many unread messages are in that thread.</li>
+</ul>
+<h2>Filters &amp; Search</h2>
+<p>You don&#39;t have to scroll endlessly to find a specific chat.</p>
+<ul>
+<li><strong>Search Bar:</strong> Type a Customer&#39;s Name, Phone Number, or Email. The list updates instantly (debounced search).</li>
+<li><strong>Filters:</strong> Toggle between <code>All</code>, <code>Unread</code>, <code>Active</code>, and <code>Archived</code> conversations.</li>
+</ul>
+<h2>The Message Timeline</h2>
+<p>Clicking a conversation opens the Timeline in the center of the screen.</p>
+<ul>
+<li><strong>Green Bubbles:</strong> Outbound messages sent by your team.</li>
+<li><strong>White Bubbles:</strong> Inbound messages received from the customer.</li>
+<li>Every message includes an exact timestamp.</li>
+<li>The system automatically handles multi-line text and emojis.</li>
+</ul>
+<h2>Media &amp; Attachments</h2>
+<p>Customers frequently send images (e.g., screenshots of errors).</p>
+<ul>
+<li>The system intercepts WhatsApp media attachments securely.</li>
+<li>Inline buttons will appear reading <strong>[View Attachment]</strong>.</li>
+<li>Clicking this opens the image cleanly without downloading malicious files directly to your device.</li>
+</ul>
+<h2>AI Summary</h2>
+<p>On the right side of the screen, you will find the <strong>AI Copilot</strong> panel.</p>
+<ul>
+<li>The AI automatically reads the entire conversation history.</li>
+<li>It generates a 2-3 sentence summary of the core issue.</li>
+<li>This saves you from reading 50 messages of &quot;Hello, are you there?&quot; to find the actual problem.</li>
+</ul>
+<h2>Internal Notes</h2>
+<p>You can leave private notes on a conversation that the customer will never see.</p>
+<ul>
+<li>Useful for handing off a chat to another agent: <em>&quot;Ahmed, this customer is very angry about a delayed shipment. Please handle.&quot;</em></li>
+</ul>
+<h2>Customer Profile</h2>
+<p>Also on the right panel is the <strong>Customer Profile</strong>.</p>
+<ul>
+<li>Displays the Customer&#39;s Name, Company, Phone Number, and VIP status.</li>
+<li>Shows a list of <strong>Linked Tasks</strong> currently active for this customer, preventing you from opening a duplicate task if one is already being worked on.</li>
+</ul>
+<h2>Replying &amp; History</h2>
+<p>To send a message back via WhatsApp:</p>
+<ol>
+<li>Type your response in the bottom input bar.</li>
+<li>Press <strong>Enter</strong> or click <strong>Send</strong>.</li>
+<li>The message is instantly queued and dispatched via the WhatsApp Cloud API.</li>
+<li>If a message fails to send (e.g., API timeout), the system will automatically retry 3 times behind the scenes.</li>
+</ol>
+<blockquote>
+<p>[!NOTE]
+All conversation history is retained indefinitely. You can always search for a customer 6 months later and see their complete interaction history.</p>
+</blockquote>
+<p>[Screenshot: Conversation Center Interface]</p>
+<h1>07. Task Platform</h1>
+<p>Tasks are the fundamental units of work in THE-SPACE-MANAGEMENT. If a problem isn&#39;t captured as a Task, it doesn&#39;t exist.</p>
+<h2>The Task Lifecycle</h2>
+<p>A Task moves through a standardized lifecycle defined by your company&#39;s Workflow.</p>
+<ol>
+<li><strong>Creation:</strong> Generated manually by a Boss or automatically by the AI Pipeline.</li>
+<li><strong>Assignment:</strong> Delegated to a specific Employee.</li>
+<li><strong>Execution:</strong> Moved to &quot;In Progress&quot; while work occurs.</li>
+<li><strong>Completion:</strong> Moved to &quot;Done&quot;.</li>
+</ol>
+<h2>Statuses &amp; Workflows</h2>
+<p>Tasks do not have hardcoded statuses like &quot;Open&quot; or &quot;Closed&quot;. Instead, they use dynamic <strong>Workflow States</strong>.</p>
+<ul>
+<li>Typical columns: <code>To Do</code> ➔ <code>In Progress</code> ➔ <code>Under Review</code> ➔ <code>Done</code>.</li>
+<li><strong>WIP Limits (Work In Progress):</strong> The system prevents employees from becoming overwhelmed. If the &quot;In Progress&quot; column has a WIP Limit of 3, the system will actively block you from dragging a 4th task into that column.</li>
+</ul>
+<h2>Subtasks &amp; Checklists</h2>
+<p>Complex tasks can be broken down.</p>
+<ul>
+<li>Add a <strong>Checklist</strong> to a task (e.g., &quot;1. Check power. 2. Replace toner. 3. Print test page.&quot;).</li>
+<li>Subtasks must be completed before the parent task can be marked Done.</li>
+</ul>
+<h2>Dependencies</h2>
+<p>Tasks can block other tasks.</p>
+<ul>
+<li>If Task B depends on Task A, Task B cannot be moved to &quot;In Progress&quot; until Task A is &quot;Done&quot;.</li>
+</ul>
+<h2>Watchers &amp; Reviewers</h2>
+<ul>
+<li><strong>Assignee:</strong> The person doing the work.</li>
+<li><strong>Reviewer:</strong> The Boss who must approve the work before it is finalized.</li>
+<li><strong>Watchers:</strong> Anyone who wishes to receive notifications when the task is updated.</li>
+</ul>
+<h2>Time Tracking</h2>
+<p>The system handles time tracking automatically.</p>
+<ul>
+<li>It records the exact timestamp when a task is created (<code>created_at</code>).</li>
+<li>It records the exact timestamp when a task transitions to the final &#39;Done&#39; state (<code>completed_at</code>).</li>
+<li>The difference between these two timestamps calculates your <strong>Response Time KPIs</strong>.</li>
+</ul>
+<h2>Attachments</h2>
+<p>You can upload files directly to a Task.</p>
+<ul>
+<li>Maximum file size is typically 20MB.</li>
+<li>Supported formats: Images (JPG/PNG), PDFs, and standard Office documents.</li>
+</ul>
+<h2>Recurring Tasks</h2>
+<p>For preventative maintenance or regular audits, you can set a task to recur.</p>
+<ul>
+<li>e.g., &quot;Server Backup Audit&quot; ➔ Recurs every Friday at 9:00 AM.</li>
+<li>The system will automatically spawn a fresh task clone at the specified interval.</li>
+</ul>
+<h2>Archive vs. Delete</h2>
+<ul>
+<li>You should almost <strong>never</strong> delete a Task. Deleting destroys historical metrics.</li>
+<li>Instead, Tasks are automatically <strong>Archived</strong> once they remain in the &quot;Done&quot; column for a specific duration (e.g., 30 days). Archived tasks remain fully searchable but vanish from active Kanban boards.</li>
+</ul>
+<h2>Search &amp; Bulk Actions</h2>
+<ul>
+<li>Use the <strong>Global Search</strong> to find any task by its Title or ID (e.g., <code>TSK-1042</code>).</li>
+<li>In the Table view, you can select multiple tasks using checkboxes to apply <strong>Bulk Actions</strong> (e.g., Reassign 10 tasks to a new employee simultaneously).</li>
+</ul>
+<h2>Views: Kanban, Calendar, Timeline, Table</h2>
+<p>You are not restricted to one view.</p>
+<ul>
+<li><strong>Kanban:</strong> Best for daily execution (drag and drop cards).</li>
+<li><strong>Calendar:</strong> Best for visualizing Due Dates.</li>
+<li><strong>Timeline (Gantt):</strong> Best for seeing overlapping task durations.</li>
+<li><strong>Table:</strong> Best for bulk editing and dense data sorting.</li>
+</ul>
+<p>[Screenshot: Task Kanban Board]</p>
+<h1>08. Project Management</h1>
+<p>While Tasks track individual pieces of work, <strong>Projects</strong> track the overarching goal. </p>
+<h2>Projects</h2>
+<p>A Project acts as a container for related Tasks. </p>
+<ul>
+<li>Example: &quot;Al Noor Clinic IT Migration&quot; is a Project. &quot;Install Router at Al Noor&quot; is a Task inside that Project.</li>
+<li>Projects are associated with a specific <strong>Customer</strong>.</li>
+<li>Projects belong to a <strong>Workspace</strong>.</li>
+</ul>
+<h2>Milestones</h2>
+<p>Long-running projects should be broken into Milestones.</p>
+<ul>
+<li>A Milestone is a significant checkpoint (e.g., &quot;Phase 1: Hardware Installation&quot;).</li>
+<li>You can group Tasks under a specific Milestone.</li>
+<li>Once all Tasks within a Milestone are marked &quot;Done&quot;, the Milestone automatically completes.</li>
+</ul>
+<h2>Sprints</h2>
+<p>For software or agile teams, the platform supports Sprints.</p>
+<ul>
+<li>A Sprint is a time-boxed period (e.g., 2 weeks) during which a specific set of Tasks must be completed.</li>
+<li>You can assign Tasks to the &quot;Active Sprint&quot; to focus your team&#39;s attention.</li>
+</ul>
+<h2>Project Members</h2>
+<p>You must explicitly assign Employees to a Project.</p>
+<ul>
+<li>Navigate to the Project Dashboard.</li>
+<li>Under <strong>Members</strong>, add the required Employees.</li>
+<li>If an Employee is not a member of a Project, they cannot see or be assigned to its internal tasks.</li>
+</ul>
+<h2>Project Health &amp; Statistics</h2>
+<p>The <strong>Project Hub</strong> provides real-time visibility into the success or failure of a project.</p>
+<ul>
+<li><strong>Health Indicator:</strong> Calculates the ratio of completed tasks vs. overdue tasks.</li>
+<li><strong>Completion Percentage:</strong> A live progress bar mapping total tasks against completed tasks.</li>
+<li><strong>Overdue Count:</strong> Immediately highlights tasks that have missed their due date.</li>
+</ul>
+<h2>Reports</h2>
+<p>From the Project dashboard, managers can generate PDF or CSV reports detailing:</p>
+<ul>
+<li>Total hours logged (inferred from completion times).</li>
+<li>Blocked tasks.</li>
+<li>Employee contributions.</li>
+</ul>
+<blockquote>
+<p>[!TIP]
+Keep your projects scoped tightly. A project that lasts for 3 years becomes impossible to track. Break massive initiatives into smaller, quarterly Projects instead.</p>
+</blockquote>
+<p>[Screenshot: Project Hub Dashboard]</p>
+<h1>09. AI Features</h1>
+<p>THE-SPACE-MANAGEMENT uses Artificial Intelligence not to replace human workers, but to augment their capabilities, acting as a tireless assistant that reads every message instantly.</p>
+<h2>How AI Works</h2>
+<p>When a message arrives via WhatsApp, a background webhook triggers the AI pipeline. The AI uses a Large Language Model (LLM) to read the text, analyze the context, and output a structured JSON response containing summaries, urgencies, and task suggestions.</p>
+<h2>What AI Does</h2>
+<ul>
+<li><strong>Summarizes Context:</strong> Turns a 15-message rant into a 2-sentence problem statement.</li>
+<li><strong>Extracts Intent:</strong> Determines if the customer is reporting a bug, asking a billing question, or just saying &quot;Thank you.&quot;</li>
+<li><strong>Drafts Tasks:</strong> Auto-fills a proposed Task title, description, and suggests the correct priority.</li>
+</ul>
+<h2>What AI Does NOT Do</h2>
+<ul>
+<li><strong>It Does Not Auto-Assign:</strong> The AI will draft a task, but a human Manager (Boss) must click &quot;Approve&quot; before an Employee is actually assigned.</li>
+<li><strong>It Does Not Auto-Reply:</strong> The AI will never send an automated WhatsApp message to a customer posing as a human. All outbound communication must be triggered by an Employee.</li>
+</ul>
+<h2>Confidence</h2>
+<p>When the AI makes a suggestion, it occasionally includes a &quot;Confidence Score.&quot;</p>
+<ul>
+<li>If the confidence is low (e.g., the customer&#39;s message was extremely vague), the AI will flag the drafted task for mandatory human review.</li>
+</ul>
+<h2>Shadow Mode</h2>
+<p>During initial rollout, Administrators can enable <strong>Shadow Mode</strong>.</p>
+<ul>
+<li>In Shadow Mode, the AI processes all messages and logs its suggestions, but <em>hides</em> them from the Boss&#39;s UI.</li>
+<li>This allows SysAdmins to review the AI&#39;s accuracy in the logs for a few days to ensure it behaves correctly before turning it on for the management team.</li>
+</ul>
+<h2>Prompt Versions &amp; Models</h2>
+<p>Administrators control the AI&#39;s behavior via <strong>Prompts</strong>.</p>
+<ul>
+<li>You can edit the System Prompt under settings to tell the AI exactly how to behave (e.g., &quot;Always look for a 5-digit invoice number&quot;).</li>
+<li>The system supports different models (e.g., OpenAI GPT-4, Anthropic Claude). You can swap models in the <code>.env</code> settings depending on cost and performance needs.</li>
+</ul>
+<h2>Costs</h2>
+<p>AI is not free. Every message processed consumes &quot;tokens&quot;, which incur fractions of a cent in billing from your LLM provider (OpenAI/Anthropic). </p>
+<ul>
+<li>To manage costs, the AI only processes the most recent unsummarized messages in a thread, rather than re-reading a 5-year history every time the customer says &quot;Hello.&quot;</li>
+</ul>
+<h2>How to Override AI</h2>
+<p>If the AI drafts a task that is entirely incorrect:</p>
+<ol>
+<li>Ignore the AI suggestion button.</li>
+<li>Click <strong>Create Manual Task</strong>.</li>
+<li>Fill out the task details yourself.</li>
+</ol>
+<h2>How to Improve AI</h2>
+<p>If you notice the AI consistently categorizing &quot;Network Outages&quot; as &quot;Hardware Failures&quot;:</p>
+<ul>
+<li>Contact your Administrator.</li>
+<li>They can adjust the System Prompt to give the AI explicit instructions on how to differentiate between those two categories.</li>
+</ul>
+<p>[Screenshot: AI Copilot Interface in Conversation Center]</p>
+<h1>10. Reports &amp; Analytics</h1>
+<p>The Reports Hub is the command center for data-driven management. It aggregates data from Tasks, Projects, and Conversations into actionable insights.</p>
+<h2>KPI Definitions</h2>
+<h3>Task Completion</h3>
+<p>The raw volume of work your team is completing.</p>
+<ul>
+<li><strong>Total Completed:</strong> The absolute number of Tasks moved to &quot;Done&quot;.</li>
+<li><strong>Completion Rate:</strong> The percentage of Tasks completed versus Tasks created within a specific timeframe (e.g., this week).</li>
+</ul>
+<h3>Response Time</h3>
+<p>How fast your team is reacting to problems.</p>
+<ul>
+<li><strong>Calculation:</strong> The system calculates the exact duration between a Task&#39;s <code>created_at</code> timestamp and its <code>completed_at</code> timestamp.</li>
+<li><strong>Average Turnaround:</strong> The mean average of all response times over the selected period.</li>
+</ul>
+<h3>Employee Performance</h3>
+<p>A breakdown of individual execution metrics.</p>
+<ul>
+<li>See exactly how many tasks Ahmed completed versus Sarah.</li>
+<li>Helps identify if one employee is carrying the entire workload while another is blocked or underperforming.</li>
+</ul>
+<h3>Project Health</h3>
+<p>An aggregate view of project stability.</p>
+<ul>
+<li>Compares the ratio of completed Milestones against overdue Tasks to generate a &quot;Healthy&quot;, &quot;At Risk&quot;, or &quot;Failing&quot; status.</li>
+</ul>
+<h3>AI Usage &amp; Costs</h3>
+<p>(Available to Administrators)</p>
+<ul>
+<li>Tracks how many API calls the AI pipeline is making.</li>
+<li>Estimates the token consumption and resulting financial cost from your LLM provider.</li>
+</ul>
+<h3>Velocity</h3>
+<p>Velocity measures momentum.</p>
+<ul>
+<li><strong>7-Day Rolling Velocity:</strong> A dynamic bar chart showing how many tasks were completed on each of the last 7 days.</li>
+<li>A steady velocity indicates a healthy team. Extreme spikes followed by zero-completion days indicate workflow blockages or batch-processing habits.</li>
+</ul>
+<h2>Using Charts</h2>
+<p>Charts on the Reports Dashboard are highly interactive.</p>
+<ul>
+<li>Hover over a bar or pie slice to see exact numerical data.</li>
+<li>Click on a chart segment (if supported) to drill down into the specific Tasks that make up that metric.</li>
+</ul>
+<blockquote>
+<p>[!TIP]
+Do not use these metrics solely to punish employees. A slow &quot;Average Turnaround&quot; time might mean your team is understaffed, or that they are being assigned tasks that require waiting on third-party vendors. Look at the data contextually.</p>
+</blockquote>
+<p>[Screenshot: Reports Hub Analytics Dashboard]</p>
+<h1>11. Notifications</h1>
+<p>The platform relies on a robust notification engine to ensure critical updates are never missed. Notifications are dispatched across three primary channels.</p>
+<h2>1. In-App Notifications</h2>
+<p>This is the most common notification type.</p>
+<ul>
+<li><strong>Where:</strong> The Bell Icon in the top right corner of the navigation bar.</li>
+<li><strong>When:</strong> You are assigned a task, mentioned in a comment, or a task you are watching changes status.</li>
+<li><strong>Action:</strong> Clicking the notification usually routes you directly to the relevant Task or Conversation.</li>
+</ul>
+<h2>2. Email Notifications</h2>
+<p>For critical alerts that need to reach you when you are not logged into the system.</p>
+<ul>
+<li><strong>Where:</strong> Delivered to the email address associated with your Profile.</li>
+<li><strong>When:</strong> Major system events, daily digest reports, or urgent task assignments.</li>
+<li>You can turn off Email notifications in your Personal Profile settings.</li>
+</ul>
+<h2>3. WhatsApp Notifications</h2>
+<p>The platform can communicate directly with customers via WhatsApp.</p>
+<ul>
+<li><strong>Where:</strong> The customer&#39;s mobile device.</li>
+<li><strong>When:</strong> An agent replies to their ticket via the Conversation Center.</li>
+<li><strong>Note:</strong> The system does not currently text Employees on their personal WhatsApp numbers; this channel is strictly for Customer CRM communication.</li>
+</ul>
+<h2>Failures &amp; Retries</h2>
+<p>Sometimes, third-party services (like Meta&#39;s WhatsApp API or an SMTP Email server) experience downtime.</p>
+<ul>
+<li>The platform uses a resilient <strong>Queue System</strong>.</li>
+<li>If a WhatsApp message fails to send due to a network timeout, the system does not give up.</li>
+<li>It will automatically <strong>Retry 3 times</strong> behind the scenes, waiting a few moments between each attempt.</li>
+</ul>
+<h2>Notification History</h2>
+<p>If you accidentally dismiss a notification, you can view your history.</p>
+<ul>
+<li>Open the Notification Drawer (Bell Icon).</li>
+<li>Even after marking an alert as &quot;read&quot;, it remains in your history log for a set period before being permanently archived.</li>
+</ul>
+<blockquote>
+<p>[!WARNING]
+If you are not receiving Emails, check your Spam folder. If they are completely missing, notify your Administrator to verify the SMTP Server Health in the System Dashboard.</p>
+</blockquote>
+<h1>12. Search &amp; Productivity</h1>
+<p>THE-SPACE-MANAGEMENT is built for speed. Moving your mouse to click through five different menus is inefficient. Power users leverage Search and Shortcuts to navigate instantly.</p>
+<h2>Global Search</h2>
+<p>Located at the top center of your screen.</p>
+<ul>
+<li><strong>How it works:</strong> The moment you start typing, the system queries the database asynchronously.</li>
+<li><strong>What it searches:</strong> <ul>
+<li>Customer Names &amp; Phones</li>
+<li>Project Titles</li>
+<li>Task Titles &amp; Descriptions</li>
+<li>Employee Names</li>
+<li>Open Issues</li>
+</ul>
+</li>
+<li><strong>Result:</strong> Click any result to be instantly routed to its specific details page.</li>
+</ul>
+<h2>The Command Palette</h2>
+<p>The Command Palette is the Global Search on steroids. It is a fully keyboard-driven interface.</p>
+<ul>
+<li><strong>Shortcut:</strong> Press <code>CMD + K</code> (Mac) or <code>CTRL + K</code> (Windows) from absolutely anywhere.</li>
+<li><strong>Navigation:</strong> Type your query, use the <code>Up</code> and <code>Down</code> arrow keys to highlight a result, and press <code>Enter</code> to go there.</li>
+<li><strong>Action Execution:</strong> In future updates, the Command Palette will allow you to execute actions directly (e.g., typing &quot;Create Task&quot; and pressing Enter).</li>
+</ul>
+<h2>Keyboard Shortcuts</h2>
+<p>Memorize these to speed up your daily workflow:</p>
+<ul>
+<li><code>CMD + K</code> / <code>CTRL + K</code>: Open Command Palette</li>
+<li><code>ESC</code>: Close any modal window, image viewer, or dropdown menu.</li>
+<li><code>Enter</code>: Submit the currently active form or send a WhatsApp message from the Conversation Center input.</li>
+</ul>
+<h2>Saved Filters</h2>
+<p>If you find yourself constantly applying the same filters (e.g., &quot;Show me all High Priority tasks assigned to Ahmed in the &#39;To Do&#39; column&quot;):</p>
+<ul>
+<li>Set up your complex filter in the Task Table view.</li>
+<li>(Feature Dependent) Look for the <strong>Save Filter</strong> icon to lock this view in for the future, saving you from re-clicking checkboxes every morning.</li>
+</ul>
+<h2>Quick Actions</h2>
+<p>Throughout the UI, look for &quot;Three Dots&quot; (ellipsis) icons or right-click contexts.</p>
+<ul>
+<li>These menus provide <strong>Quick Actions</strong>.</li>
+<li>Instead of opening a Task to assign it, you can often use a Quick Action directly from the Kanban board or Table row to reassign it in one click.</li>
+</ul>
+<blockquote>
+<p>[!TIP]
+Force yourself to use <code>CMD + K</code> instead of the mouse for one entire day. It will permanently change how fast you use the platform.</p>
+</blockquote>
+<h1>13. Troubleshooting</h1>
+<p>When things go wrong, do not panic. The platform is designed to be highly resilient, and most issues have simple resolutions. </p>
+<p>If you encounter an issue not listed here, contact your Administrator.</p>
+<h2>Common Problems &amp; Resolutions</h2>
+<h3>1. Queues Stopped (No automated background tasks running)</h3>
+<p><strong>Symptoms:</strong> </p>
+<ul>
+<li>WhatsApp messages show as &quot;Pending&quot; but never arrive on the customer&#39;s phone.</li>
+<li>AI is not generating new Tasks or summaries.</li>
+<li>Emails are not sending.
+<strong>Root Cause:</strong> The background worker processes (the &quot;Queues&quot;) have stalled or crashed.
+<strong>Resolution (For Admins):</strong></li>
+<li>Navigate to the Server metrics dashboard.</li>
+<li>Verify that <code>php artisan horizon</code> or <code>supervisor</code> is actively running.</li>
+<li>Restart the queue workers. The system will automatically catch up on the backlog.</li>
+</ul>
+<h3>2. AI Unavailable or Failing</h3>
+<p><strong>Symptoms:</strong></p>
+<ul>
+<li>The Conversation Center shows a red error next to the AI Copilot: &quot;Analysis Failed.&quot;</li>
+<li>No draft tasks are appearing for new customer complaints.
+<strong>Root Cause:</strong></li>
+<li>The API key for OpenAI/Anthropic is invalid or expired.</li>
+<li>The LLM Provider is experiencing a global outage.</li>
+<li>Your account has run out of prepaid API credits.
+<strong>Resolution:</strong></li>
+<li>Check the System Logs in the Admin Dashboard for &quot;401 Unauthorized&quot; or &quot;429 Too Many Requests&quot; from the AI provider.</li>
+<li>Update billing or API keys in the <code>.env</code> settings.</li>
+<li><strong>Fallback:</strong> Bosses must manually read customer messages and create Tasks until AI service is restored.</li>
+</ul>
+<h3>3. WhatsApp Disconnected</h3>
+<p><strong>Symptoms:</strong></p>
+<ul>
+<li>Customers report sending messages, but they do not appear in the Conversation Center.</li>
+<li>Attempting to send a message throws an API Error.
+<strong>Root Cause:</strong></li>
+<li>The Meta Access Token has expired.</li>
+<li>The webhook endpoint configuration in the Meta Developer Portal is incorrect or failing SSL checks.
+<strong>Resolution:</strong></li>
+<li>Re-generate a permanent Access Token from Meta.</li>
+<li>Update the token in the platform&#39;s Integration settings.</li>
+<li>Verify the Webhook URL is returning a HTTP 200 status.</li>
+</ul>
+<h3>4. Missing Tasks</h3>
+<p><strong>Symptoms:</strong></p>
+<ul>
+<li>An Employee says, &quot;I can&#39;t see the task you assigned to me!&quot;
+<strong>Root Cause:</strong></li>
+<li>The Task is assigned to a Project that belongs to a Workspace the Employee does not have access to.</li>
+<li>The Boss accidentally archived the Task instead of moving it to &quot;To Do&quot;.
+<strong>Resolution:</strong></li>
+<li>Use the Global Search to find the Task ID.</li>
+<li>Check the Project Members list and ensure the Employee is actively added to that specific Project.</li>
+</ul>
+<h3>5. Permissions Denied (403 Forbidden)</h3>
+<p><strong>Symptoms:</strong></p>
+<ul>
+<li>Clicking a button or opening a page results in a &quot;You do not have permission to access this page&quot; error.
+<strong>Root Cause:</strong></li>
+<li>You are logged in with the <code>Employee</code> role, but attempting to access a <code>Boss</code> or <code>Admin</code> restricted page (like Project Creation or Settings).
+<strong>Resolution:</strong></li>
+<li>This is intentional. If you believe you need management access, request a role upgrade from your Administrator.</li>
+</ul>
+<h3>6. Failed Notifications</h3>
+<p><strong>Symptoms:</strong></p>
+<ul>
+<li>In-app bell notifications appear, but Email alerts are completely silent.
+<strong>Root Cause:</strong></li>
+<li>SMTP Mail Server credentials are wrong.</li>
+<li>Emails are landing in the spam folder.
+<strong>Resolution:</strong></li>
+<li>Check your personal Profile to ensure Email alerts aren&#39;t toggled off.</li>
+<li>Have the Admin send a test email via the system settings to verify SMTP connectivity.</li>
+</ul>
+<h3>7. Slow Performance / Laggy UI</h3>
+<p><strong>Symptoms:</strong></p>
+<ul>
+<li>Pages take 5+ seconds to load. </li>
+<li>The Kanban board stutters when dragging tasks.
+<strong>Root Cause:</strong></li>
+<li>High server load.</li>
+<li>The Redis Cache is offline, forcing the system to query the database directly for every request.
+<strong>Resolution:</strong></li>
+<li>Admins should check the System Health Widget to verify Redis is &quot;Connected&quot;.</li>
+<li>Clear local browser cache and refresh.</li>
+</ul>
+<blockquote>
+<p>[!WARNING]
+Never attempt to fix database inconsistencies by manually editing SQL rows unless you are a qualified SysAdmin. Always use the UI interfaces to prevent breaking Eloquent relationships.</p>
+</blockquote>
+<h1>14. Frequently Asked Questions (FAQ)</h1>
+<h2>General &amp; Access</h2>
+<p><strong>1. What is THE-SPACE-MANAGEMENT?</strong><br>It is a unified Work OS that combines WhatsApp customer support, AI triage, and Kanban task management into one platform.</p>
+<p><strong>2. I forgot my password. How do I reset it?</strong><br>If automated resets are disabled, contact your SysAdmin. They can issue a temporary password via the Employee Management panel.</p>
+<p><strong>3. Why can&#39;t I see the &quot;Settings&quot; tab?</strong><br>You are likely logged in as an Employee or Boss. Only Administrators have access to global system settings.</p>
+<p><strong>4. Can I use the platform on my mobile phone?</strong><br>Yes, the interface is fully responsive. You can access your Dashboard and Kanban board via Safari or Chrome on your mobile device.</p>
+<p><strong>5. Is there a native iOS or Android app?</strong><br>No, it is a Progressive Web App (PWA). You can &quot;Add to Home Screen&quot; from your mobile browser for an app-like experience.</p>
+<h2>Tasks &amp; Kanban</h2>
+<p><strong>6. How do I assign a task to multiple people?</strong><br>Currently, a single task is assigned to a single owner for clear accountability. Use subtasks or checklists if multiple people must contribute.</p>
+<p><strong>7. I accidentally moved a task to &quot;Done&quot;, can I move it back?</strong><br>Yes, but you shouldn&#39;t. If the problem reappears, create a new task. Moving it back corrupts your completion velocity metrics.</p>
+<p><strong>8. What does &quot;WIP Limit Exceeded&quot; mean?</strong><br>Your manager has restricted how many tasks can be &quot;In Progress&quot; simultaneously to prevent burnout. Finish an active task before starting a new one.</p>
+<p><strong>9. Can I delete a task?</strong><br>No. You can only Archive it or move it to Done. This preserves historical data.</p>
+<p><strong>10. How do I attach a file to a task?</strong><br>Open the task details and click the &quot;Upload&quot; button or drag-and-drop the file into the attachments zone.</p>
+<p><strong>11. What happens if I miss a task due date?</strong><br>The task card will turn red, and it will be flagged as &quot;Overdue&quot; on the Boss&#39;s Project Dashboard.</p>
+<p><strong>12. Can I create recurring tasks?</strong><br>Yes. In the task creation menu, set the &quot;Recurrence&quot; interval (e.g., Weekly, Monthly).</p>
+<p><strong>13. What is a &quot;Boss Note&quot;?</strong><br>A private instruction left by your manager. The customer never sees this.</p>
+<p><strong>14. How do I find an old task?</strong><br>Use <code>CMD + K</code> to open the Global Search and type the task name or ID.</p>
+<p><strong>15. Can I export my tasks to Excel?</strong><br>Yes, Admins and Bosses can export table views to CSV/Excel from the Reports Hub.</p>
+<h2>Projects &amp; Workspaces</h2>
+<p><strong>16. What is the difference between a Workspace and a Project?</strong><br>A Workspace is a broad department (e.g., &quot;IT Support&quot;). A Project is a specific initiative within that department (e.g., &quot;Network Upgrade 2026&quot;).</p>
+<p><strong>17. Why can&#39;t I assign an employee to my Project?</strong><br>They must first belong to the same Workspace that the Project is created under.</p>
+<p><strong>18. How is &quot;Project Health&quot; calculated?</strong><br>It compares the ratio of completed tasks against overdue tasks and total duration remaining.</p>
+<p><strong>19. What is a Sprint?</strong><br>A defined timeframe (usually 2 weeks) where the team focuses solely on a specific batch of assigned tasks.</p>
+<p><strong>20. Can a task exist without a project?</strong><br>Technically yes, but it is highly discouraged as it ruins reporting metrics. Always attach tasks to Projects or Customers.</p>
+<h2>Conversation Center (WhatsApp)</h2>
+<p><strong>21. Can I send a message first to a customer?</strong><br>Yes, but WhatsApp enforces a 24-hour window. If 24 hours have passed since their last message, you must use a pre-approved Meta Template Message to initiate contact.</p>
+<p><strong>22. Are my internal notes visible to the customer?</strong><br>No. Internal Notes are strictly for your team. Only messages typed in the main reply box are sent to WhatsApp.</p>
+<p><strong>23. Can the customer see when I am typing?</strong><br>No, the WhatsApp Cloud API does not transmit typing indicators from our platform.</p>
+<p><strong>24. Why did my message fail to send?</strong><br>Check if the WhatsApp session expired, or if there is a temporary Meta API outage. The system will automatically retry 3 times.</p>
+<p><strong>25. Can I send Voice Notes?</strong><br>You can receive and play inbound voice notes, but outbound voice notes are not currently supported by the standard text editor.</p>
+<p><strong>26. How do I handle an angry customer?</strong><br>Read the AI summary to understand the context quickly, remain professional, and if needed, tag your Boss in an Internal Note to review the chat.</p>
+<p><strong>27. Does the system support group chats?</strong><br>No. The platform is designed for direct 1-on-1 business-to-customer communication via the WhatsApp Business API.</p>
+<p><strong>28. How large can an attachment be?</strong><br>WhatsApp limits media attachments to roughly 16MB. The platform strictly enforces a 20MB limit.</p>
+<p><strong>29. Can I delete a message I sent by mistake?</strong><br>No. Once it is sent to the WhatsApp API, it cannot be recalled.</p>
+<p><strong>30. Why is a conversation marked &quot;Archived&quot;?</strong><br>Conversations inactive for more than 14 days are auto-archived to keep your inbox clean. They will un-archive instantly if the customer messages again.</p>
+<h2>Artificial Intelligence</h2>
+<p><strong>31. Does the AI reply to customers automatically?</strong><br>Never. The AI only reads and summarizes internally. A human must always press &quot;Send&quot;.</p>
+<p><strong>32. The AI suggested the wrong task priority. Why?</strong><br>The AI guesses based on language. If a customer says &quot;It&#39;s slightly broken but I&#39;m FURIOUS,&quot; the AI might mistake emotion for mechanical urgency. Always verify its suggestions.</p>
+<p><strong>33. How long does the AI take to process a message?</strong><br>Usually between 2 to 8 seconds depending on the length of the conversation history.</p>
+<p><strong>34. Is our customer data being used to train public AI models?</strong><br>No. We utilize Enterprise API agreements (Zero Data Retention policies) with OpenAI/Anthropic, meaning your data is not used for model training.</p>
+<p><strong>35. Can I turn the AI off?</strong><br>Yes. Bosses can ignore it, and Admins can disable the AI Pipeline webhook completely in Settings.</p>
+<p><strong>36. What is &quot;Shadow Mode&quot;?</strong><br>A testing phase where AI analyzes messages but hides its suggestions from users. It allows Admins to test accuracy safely.</p>
+<p><strong>37. Why didn&#39;t the AI generate a summary for this chat?</strong><br>If the customer only sent &quot;Hello&quot; or a thumbs-up emoji, the AI skips processing to save token costs.</p>
+<p><strong>38. Can the AI translate languages?</strong><br>Yes. The LLMs natively understand dozens of languages and will usually summarize them into your system&#39;s default language (English/Arabic).</p>
+<h2>Metrics &amp; Reports</h2>
+<p><strong>39. How is &quot;Average Response Time&quot; calculated?</strong><br>The exact time from Task Creation (<code>created_at</code>) to Task Completion (<code>completed_at</code>).</p>
+<p><strong>40. Why did our velocity chart drop to zero on Sunday?</strong><br>Velocity only tracks <em>completed</em> tasks. If nobody clicks &quot;Done&quot; on Sunday, the velocity is zero, even if work was happening.</p>
+<p><strong>41. Can I track how much time I spent actively working on a task?</strong><br>Currently, the system tracks overall lifecycle duration, not stop-watch style active hours.</p>
+<p><strong>42. Who can see my performance metrics?</strong><br>You and your Boss. Employees cannot see each other&#39;s performance metrics.</p>
+<p><strong>43. How often do the dashboards update?</strong><br>The data is real-time. If a task is marked done, the dashboard reflects it on the next page load.</p>
+<h2>System &amp; Troubleshooting</h2>
+<p><strong>44. The system is very slow. What&#39;s wrong?</strong><br>First, check your internet connection. If stable, the server&#39;s Redis Cache may be under heavy load. Contact your Admin.</p>
+<p><strong>45. I keep getting logged out. Why?</strong><br>For security, sessions expire after a set period of inactivity (typically 2-12 hours).</p>
+<p><strong>46. How do I toggle Dark Mode?</strong><br>Click the Sun/Moon icon in the top right navigation bar.</p>
+<p><strong>47. What does &quot;404 Not Found&quot; mean?</strong><br>You clicked a link to a Task or Project that has been permanently deleted or you do not have permission to view it.</p>
+<p><strong>48. Are there keyboard shortcuts?</strong><br>Yes! Press <code>CMD + K</code> (Mac) or <code>CTRL + K</code> (Windows) to open the Command Palette.</p>
+<p><strong>49. Can I change my profile picture?</strong><br>Yes, in your Personal Profile settings (bottom left corner).</p>
+<p><strong>50. I found a bug. How do I report it?</strong><br>Do not message the customer support number. Tell your direct Boss, who will log an internal Issue for the SysAdmin to resolve.</p>
+<h1>15. Best Practices</h1>
+<p>To get the most out of THE-SPACE-MANAGEMENT, teams must align on how they use the tool. Software cannot fix broken communication habits. Follow these best practices to ensure operational excellence.</p>
+<h2>1. Task Naming Conventions</h2>
+<p>A task title should be instantly understandable.</p>
+<ul>
+<li><strong>Bad:</strong> &quot;Fix it&quot; or &quot;Printer issue&quot;</li>
+<li><strong>Good:</strong> &quot;[Al Noor Clinic] Replace Fuser Unit in Printer A&quot;</li>
+<li><strong>Rule:</strong> Use Action Verbs. Be specific. Include the location or customer if applicable.</li>
+</ul>
+<h2>2. Master the Boss Notes</h2>
+<p>Bosses should never assign a task without context.</p>
+<ul>
+<li>The AI gives a summary, but the Boss must give <em>direction</em>.</li>
+<li>Always use the &quot;Boss Notes&quot; field to tell the Employee exactly what the expectation is (e.g., &quot;Customer is agitated, please prioritize a polite approach and confirm warranty status before replacing parts.&quot;).</li>
+</ul>
+<h2>3. Project Scoping</h2>
+<p>Do not create &quot;Forever Projects&quot;.</p>
+<ul>
+<li><strong>Bad Project:</strong> &quot;Maintenance 2026&quot;</li>
+<li><strong>Good Project:</strong> &quot;Q1 2026 Router Upgrades&quot;</li>
+<li>Projects must have a defined end state. If a project lasts forever, its health metrics become meaningless.</li>
+</ul>
+<h2>4. Employee Workflow Hygiene</h2>
+<p>Employees must update the system in real-time.</p>
+<ul>
+<li>Do not wait until 5:00 PM to move all your tasks to &quot;Done&quot; at once.</li>
+<li>This ruins the &quot;Velocity&quot; metrics and makes it look like the team did zero work for 8 hours, then completed 50 tasks in 1 minute.</li>
+<li><strong>Rule:</strong> Move a task to &quot;In Progress&quot; when you start. Move it to &quot;Done&quot; the second you finish.</li>
+</ul>
+<h2>5. Trust but Verify the AI</h2>
+<p>The AI Copilot is an assistant, not an oracle.</p>
+<ul>
+<li>It will occasionally misinterpret a sarcastic customer complaint as a genuine hardware failure.</li>
+<li>Bosses must quickly scan the actual conversation timeline before blindly clicking &quot;Approve AI Suggestion&quot;.</li>
+</ul>
+<h2>6. Internal Communication</h2>
+<p>Do not use WhatsApp to talk to your own team.</p>
+<ul>
+<li>Keep internal chatter inside the system. </li>
+<li>Use the <strong>Internal Notes</strong> feature on Tasks and Conversations to tag teammates. This keeps the audit trail centralized. If someone is out sick, another agent can read the notes and take over immediately.</li>
+</ul>
+<h2>7. Respect the WIP Limits</h2>
+<p>Work-In-Progress (WIP) limits exist to prevent burnout and context-switching.</p>
+<ul>
+<li>If the Kanban board blocks you from moving a task to &quot;In Progress&quot;, it means you have too much active work.</li>
+<li>Finish what you are doing, move it to &quot;Done&quot;, and <em>then</em> pull the next task.</li>
+</ul>
+<h2>8. Security &amp; Privacy</h2>
+<ul>
+<li>Never share your password.</li>
+<li>Do not download customer attachments on public computers.</li>
+<li>If a customer sends sensitive information (e.g., credit card numbers) via WhatsApp, follow your company&#39;s data sanitation policy immediately. The AI does not automatically censor PII (Personally Identifiable Information).</li>
+</ul>
+<h2>9. Navigate with the Keyboard</h2>
+<ul>
+<li>Stop clicking through menus. </li>
+<li>Make a habit of pressing <code>CMD + K</code> to search for exactly what you need. It saves minutes every day, which compounds into hours every month.</li>
+</ul>
+<h1>16. Glossary</h1>
+<p>This glossary defines the specific terminology used within THE-SPACE-MANAGEMENT platform.</p>
+<h2>A</h2>
+<ul>
+<li><strong>AI Copilot:</strong> The background artificial intelligence that reads inbound messages, summarizes intent, and drafts task suggestions.</li>
+<li><strong>Archive:</strong> A soft-delete state. Archived records (Tasks, Employees, Conversations) are hidden from active views but retained in the database for historical reporting.</li>
+</ul>
+<h2>B</h2>
+<ul>
+<li><strong>Boss:</strong> A management role in the platform. Bosses triage AI suggestions, create projects, and assign work, but rarely execute the tasks themselves.</li>
+<li><strong>Boss Note:</strong> A private, internal instruction field on a Task visible only to internal team members, not the customer.</li>
+</ul>
+<h2>C</h2>
+<ul>
+<li><strong>Command Palette:</strong> A keyboard-driven global search and navigation tool opened via <code>CMD + K</code> or <code>CTRL + K</code>.</li>
+<li><strong>Conversation Center:</strong> The unified inbox where all inbound and outbound WhatsApp communications are managed.</li>
+</ul>
+<h2>D</h2>
+<ul>
+<li><strong>Dark Mode:</strong> A UI setting that flips the application background to dark gray/black to reduce eye strain.</li>
+</ul>
+<h2>E</h2>
+<ul>
+<li><strong>Employee:</strong> An execution role in the platform. Employees view their assigned tasks on a personal Kanban board and execute the work.</li>
+</ul>
+<h2>F</h2>
+<ul>
+<li><strong>Feature Flag:</strong> A system toggle used by Administrators to enable or disable new, experimental features globally without altering code.</li>
+</ul>
+<h2>K</h2>
+<ul>
+<li><strong>Kanban:</strong> A visual workflow management method. Tasks are represented as cards and moved across columns (states) from left to right.</li>
+<li><strong>KPI (Key Performance Indicator):</strong> A quantifiable measure of performance, such as &quot;Average Response Time&quot;.</li>
+</ul>
+<h2>M</h2>
+<ul>
+<li><strong>Milestone:</strong> A significant checkpoint within a Project. Milestones group related Tasks together.</li>
+</ul>
+<h2>P</h2>
+<ul>
+<li><strong>Project:</strong> A temporary endeavor with a defined goal. Projects contain Tasks and belong to a Workspace.</li>
+</ul>
+<h2>Q</h2>
+<ul>
+<li><strong>Queue:</strong> A background worker system that processes heavy tasks (like sending emails, hitting the WhatsApp API, or querying the AI) without freezing your web browser.</li>
+</ul>
+<h2>R</h2>
+<ul>
+<li><strong>RBAC (Role-Based Access Control):</strong> The security architecture that ensures an Employee cannot access Administrator settings.</li>
+</ul>
+<h2>S</h2>
+<ul>
+<li><strong>Shadow Mode:</strong> An AI testing phase where the AI processes messages and logs results, but does not display suggestions to the end-user.</li>
+<li><strong>Sprint:</strong> A time-boxed period (e.g., 2 weeks) during which a specific subset of project tasks must be completed.</li>
+</ul>
+<h2>T</h2>
+<ul>
+<li><strong>Task:</strong> The fundamental unit of work. It has an assignee, a status, a priority, and a due date.</li>
+<li><strong>Timeline:</strong> The chronological view of a conversation history or the Gantt-chart view of overlapping task durations.</li>
+</ul>
+<h2>U</h2>
+<ul>
+<li><strong>User:</strong> Anyone with a login to the system (Admin, Boss, or Employee). Customer contacts are <em>not</em> Users.</li>
+</ul>
+<h2>W</h2>
+<ul>
+<li><strong>Webhook:</strong> An automated data payload sent from an external service (like Meta/WhatsApp) to our platform the millisecond a customer sends a message.</li>
+<li><strong>WIP Limit (Work In Progress Limit):</strong> A strict cap on the number of tasks allowed in a specific Kanban column (e.g., only 3 tasks allowed &quot;In Progress&quot; per employee).</li>
+<li><strong>Workspace:</strong> The highest level of data isolation. Represents a specific company branch or department (e.g., &quot;IT Operations&quot;).</li>
+</ul>
+<h1>17. Appendix</h1>
+<p>This appendix provides visual diagrams mapping the core workflows and relationships within THE-SPACE-MANAGEMENT.</p>
+<h2>1. Core Workflow Pipeline</h2>
+<pre><code class="language-mermaid">flowchart TD
+    A[Customer WhatsApp] --&gt;|Webhook| B(Message Pipeline)
+    B --&gt; C{AI Copilot}
+    C --&gt;|Reads Context| D[Drafts Task &amp; Summary]
+    D --&gt; E{Boss Triage}
+    E --&gt;|Approves/Edits| F[Task Created]
+    F --&gt;|Assigned To| G(Employee Dashboard)
+    G --&gt;|Executes Work| H[Task Done]
+    H --&gt; I[Boss Metrics Updated]
+</code></pre>
+<h2>2. Task Lifecycle (Kanban)</h2>
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; ToDo: Created
+    ToDo --&gt; InProgress: Employee starts work
+    InProgress --&gt; ToDo: Work blocked/reverted
+    InProgress --&gt; UnderReview: Requires Boss Approval (Optional)
+    UnderReview --&gt; InProgress: Rejected
+    UnderReview --&gt; Done: Approved
+    InProgress --&gt; Done: Finished
+    Done --&gt; [*]: Archived (After 30 days)
+</code></pre>
+<h2>3. Database High-Level Relationships</h2>
+<pre><code class="language-mermaid">erDiagram
+    WORKSPACE ||--o{ PROJECT : contains
+    WORKSPACE ||--o{ EMPLOYEE : employs
+    CUSTOMER ||--o{ PROJECT : requests
+    CUSTOMER ||--o{ CONVERSATION : has
+    CONVERSATION ||--o{ MESSAGE : contains
+    PROJECT ||--o{ TASK : contains
+    TASK ||--o{ TASK_LOG : tracks
+    EMPLOYEE ||--o{ TASK : assigned_to
+</code></pre>
+<h2>4. AI Prompting Architecture</h2>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Cust as Customer
+    participant Sys as System
+    participant LLM as AI Provider
+    participant Boss as Manager
+    
+    Cust-&gt;&gt;Sys: Sends WhatsApp Msg
+    Sys-&gt;&gt;LLM: Transmit recent chat history + System Prompt
+    LLM--&gt;&gt;Sys: Return JSON (Intent, Summary, Task Draft)
+    Sys-&gt;&gt;Boss: Display AI Suggestion in UI
+    Boss-&gt;&gt;Sys: Approves Suggestion
+    Sys-&gt;&gt;Sys: Discards AI Draft, Converts to Real Task
+</code></pre>
+<h2>5. Notification Flow</h2>
+<pre><code class="language-mermaid">flowchart LR
+    A[Event Triggered] --&gt; B{Determine Channel}
+    B --&gt;|In-App| C[Update Bell Icon UI]
+    B --&gt;|Email| D[Dispatch SMTP Job]
+    B --&gt;|WhatsApp| E[Dispatch Meta API Job]
+    E --&gt; F{Success?}
+    F --&gt;|Yes| G[Mark Delivered]
+    F --&gt;|No| H[Retry Queue x3]
+    H --&gt;|Fails 3x| I[Mark Failed]
+</code></pre>
+
+</body></html>
