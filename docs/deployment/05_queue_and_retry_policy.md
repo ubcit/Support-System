@@ -6,14 +6,15 @@ This document details the queuing architecture, timeout policies, and failure ha
 
 The production environment leverages **Redis** as the queue driver (`QUEUE_CONNECTION=redis`) for ultra-fast task dispatching and memory efficiency.
 
-We operate two distinct queue partitions via Supervisor:
-1. **Default Queue (`default`)**: Handles critical business operations (WhatsApp webhooks, AI requests, ClickUp Sync). 
+We operate distinct queue partitions via Supervisor:
+1. **Default / critical (`default,critical`)**: Handles critical business operations (WhatsApp webhooks, AI requests, provider sync).
    - Workers: 4 processes
    - Max Tries: 3
-2. **Shadow Queue (`shadow`)**: Handles asynchronous non-blocking Shadow Mode AI evaluation.
+2. **Shadow Queue (`shadow`)**: Handles asynchronous non-blocking Shadow Mode AI evaluation (`RunShadowAiJob`).
    - Workers: 2 processes
    - Max Tries: 1 (Fails fast to avoid blocking system resources).
 
+Workers use `php artisan queue:work` (no hardcoded connection) so they follow `QUEUE_CONNECTION` from `.env`. Production must set `QUEUE_CONNECTION=redis`.
 ## Retry Policies & Failure Handling
 
 ### 1. Job Retries

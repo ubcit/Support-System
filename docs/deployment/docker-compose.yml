@@ -62,7 +62,7 @@ services:
     container_name: space_worker
     restart: unless-stopped
     working_dir: /var/www
-    command: php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+    command: php artisan queue:work --queue=default,critical --sleep=3 --tries=3 --max-time=3600
     volumes:
       - ./:/var/www
     networks:

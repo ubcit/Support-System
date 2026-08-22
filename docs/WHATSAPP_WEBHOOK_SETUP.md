@@ -42,12 +42,16 @@ OPENAI_API_KEY=
 OPENAI_BASE_URL=https://api.openai.com/v1
 AI_MODEL=gpt-4o
 
+# Local/dev without Redis: database. Production (Google VM / VPS): redis
 QUEUE_CONNECTION=database
+# QUEUE_CONNECTION=redis
 APP_URL=https://YOUR-PUBLIC-HOST
 ```
 
 Do **not** use quotes unless the value contains spaces or `#`.  
 Do **not** use the obsolete name `WHATSAPP_API_TOKEN` — the app reads `WHATSAPP_ACCESS_TOKEN`.
+
+On production, set `QUEUE_CONNECTION=redis` (and run Supervisor workers). Webhooks only dispatch jobs; without a worker they will not process. See [`deployment/11_google_cloud_vm_checklist.md`](deployment/11_google_cloud_vm_checklist.md).
 
 After editing:
 

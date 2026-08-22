@@ -14,10 +14,10 @@ sudo ufw enable
 ```bash
 sudo apt install -y nginx redis-server supervisor unzip curl git
 
-# Install PHP 8.2 & Extensions
+# Install PHP 8.3 & Extensions (matches composer.json)
 sudo add-apt-repository ppa:ondrej/php
 sudo apt update
-sudo apt install -y php8.2-fpm php8.2-mysql php8.2-mbstring php8.2-xml php8.2-bcmath php8.2-curl php8.2-zip php8.2-redis php8.2-gd
+sudo apt install -y php8.3-fpm php8.3-mysql php8.3-mbstring php8.3-xml php8.3-bcmath php8.3-curl php8.3-zip php8.3-redis php8.3-gd
 
 # Install Composer
 curl -sS https://getcomposer.org/installer | php
@@ -81,18 +81,17 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 php artisan event:cache
-php artisan filament:cache-components
 ```
 
 ## 7. Supervisor & Queue Setup
-1. Copy `docs/deployment/04_supervisor_configuration.conf` to `/etc/supervisor/conf.d/the-space-management-worker.conf`.
-2. Reload Supervisor:
+1. Copy `docs/deployment/04_supervisor_configuration.conf` to `/etc/supervisor/conf.d/the-space-management-worker.conf` (workers follow `QUEUE_CONNECTION` from `.env`; ensure it is `redis` in production).
+2. For Google Compute Engine, follow [`11_google_cloud_vm_checklist.md`](11_google_cloud_vm_checklist.md).
+3. Reload Supervisor:
 ```bash
 sudo supervisorctl reread
 sudo supervisorctl update
 sudo supervisorctl start all
 ```
-
 ## 8. Nginx & SSL Setup
 1. Copy `docs/deployment/07_nginx_configuration.conf` to `/etc/nginx/sites-available/the-space-management`.
 2. Symlink and restart:

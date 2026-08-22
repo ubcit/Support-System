@@ -25,6 +25,7 @@ class RunShadowAiJob implements ShouldQueue
         $this->modelId = $modelId;
         $this->promptId = $promptId;
         $this->pipelineLogId = $pipelineLogId;
+        $this->onQueue('shadow');
     }
 
     public function handle(): void
