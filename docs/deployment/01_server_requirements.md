@@ -11,7 +11,7 @@ This document outlines the hardware and software requirements for deploying **TH
 ## Software Stack
 - **OS:** Ubuntu 22.04 LTS or Debian 12
 - **Web Server:** Nginx (latest stable)
-- **PHP:** PHP 8.2 or 8.3 (with `php-fpm`)
+- **PHP:** PHP 8.3 or 8.4 (with `php-fpm`; production target: 8.4)
 - **Database:** MySQL 8.0+ or PostgreSQL 15+
 - **In-Memory Cache & Queue:** Redis 7.0+
 - **Process Manager:** Supervisor

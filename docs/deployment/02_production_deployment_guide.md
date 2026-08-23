@@ -14,10 +14,10 @@ sudo ufw enable
 ```bash
 sudo apt install -y nginx redis-server supervisor unzip curl git
 
-# Install PHP 8.3 & Extensions (matches composer.json)
+# Install PHP 8.4 & Extensions (composer.json requires ^8.3; 8.4 is supported)
 sudo add-apt-repository ppa:ondrej/php
 sudo apt update
-sudo apt install -y php8.3-fpm php8.3-mysql php8.3-mbstring php8.3-xml php8.3-bcmath php8.3-curl php8.3-zip php8.3-redis php8.3-gd
+sudo apt install -y php8.4-fpm php8.4-mysql php8.4-mbstring php8.4-xml php8.4-bcmath php8.4-curl php8.4-zip php8.4-redis php8.4-gd
 
 # Install Composer
 curl -sS https://getcomposer.org/installer | php
