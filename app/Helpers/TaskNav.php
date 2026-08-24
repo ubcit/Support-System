@@ -112,10 +112,32 @@ class TaskNav
     /**
      * @param  array<string, mixed>|null  $filters
      */
+    public static function dashboardUrlFor(?\App\Models\User $viewer, ?array $filters = null): string
+    {
+        $query = $filters ?? [];
+
+        if (static::usesWorkspaceTaskRoutesFor($viewer)) {
+            return route('workspace.employee', $query);
+        }
+
+        return route('task-dashboard', $query);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $filters
+     */
     public static function detailUrl(int|string $taskId, ?array $filters = null): string
     {
-        $query = $filters !== null ? static::clean($filters) : static::current();
-        $url = static::usesWorkspaceTaskRoutes()
+        return static::detailUrlFor(auth()->user(), $taskId, $filters !== null ? $filters : static::current());
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $filters
+     */
+    public static function detailUrlFor(?\App\Models\User $viewer, int|string $taskId, ?array $filters = null): string
+    {
+        $query = $filters !== null ? static::clean($filters) : [];
+        $url = static::usesWorkspaceTaskRoutesFor($viewer)
             ? route('workspace.task-detail', $taskId)
             : route('task-detail', $taskId);
 
@@ -127,8 +149,11 @@ class TaskNav
      */
     public static function usesWorkspaceTaskRoutes(): bool
     {
-        $user = auth()->user();
+        return static::usesWorkspaceTaskRoutesFor(auth()->user());
+    }
 
+    public static function usesWorkspaceTaskRoutesFor(?\App\Models\User $user): bool
+    {
         return $user
             && method_exists($user, 'canAccessAdmin')
             && ! $user->canAccessAdmin()

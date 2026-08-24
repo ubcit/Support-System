@@ -98,14 +98,16 @@ Prefer a transactional SMTP provider (SendGrid, Mailgun, Amazon SES, or Google W
 
 ```env
 MAIL_MAILER=smtp
+MAIL_SCHEME=null
 MAIL_HOST=smtp.your-provider.com
 MAIL_PORT=587
 MAIL_USERNAME=...
-MAIL_PASSWORD=...
-MAIL_ENCRYPTION=tls
+MAIL_PASSWORD="..."
 MAIL_FROM_ADDRESS=noreply@your-domain.com
 MAIL_FROM_NAME="${APP_NAME}"
 ```
+
+Laravel 13 ignores `MAIL_ENCRYPTION`. Use `MAIL_SCHEME=null` + port **587** (STARTTLS), or `MAIL_SCHEME=smtps` + port **465**. Quote passwords that contain `=` / `^` / `$`.
 
 Checklist:
 
@@ -114,15 +116,14 @@ Checklist:
 - GCP VPC / firewall must allow outbound TCP **587** (or **465**) from the VM.
 - Queued mail (`Mail::queue`, `SendNotificationEmailJob`) only sends when Supervisor workers are `RUNNING` and `QUEUE_CONNECTION=redis`.
 - After changing `.env` mail vars: `php artisan config:cache` then `php artisan queue:restart`.
+- CLI PHP must trust CAs (`openssl.cafile` set, or `ca-certificates` installed). Missing CA → `certificate verify failed` on SMTP.
 
 Smoke test (on the VM):
 
 ```bash
-php artisan tinker
->>> config('mail.default')   # expect: smtp
->>> Mail::raw('Support System SMTP smoke test', fn ($m) => $m->to('you@example.com')->subject('SMTP OK'));
-# If using the queue: dispatch then confirm the worker log shows the job; or use Mail::raw with sync temporarily.
->>> php artisan queue:failed
+php artisan mail:diagnose --send=you@example.com
+php artisan queue:failed
+sudo supervisorctl status
 ```
 
 Scheduled digests / due-soon / overdue also need the cron in §5 plus workers.

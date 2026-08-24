@@ -333,9 +333,9 @@
 
                                         {{-- Actions --}}
                                         <div class="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" @mousedown.stop @click.stop draggable="false" x-on:dragstart.prevent.stop>
-                                            <a href="{{ \App\Helpers\TaskNav::detailUrl($task->id) }}" class="p-1 rounded text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition" title="Open full task workspace" aria-label="Open full task workspace">
-                                                <x-heroicon-m-arrow-top-right-on-square class="w-3.5 h-3.5"/>
-                                            </a>
+                                            <button type="button" wire:click.stop="openEditModal({{ $task->id }})" class="p-1 rounded text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition" title="Edit task" aria-label="Edit task">
+                                                <x-heroicon-m-pencil-square class="w-3.5 h-3.5"/>
+                                            </button>
                                             @if($canDelete)
                                             <x-ui.confirm-button
                                                 type="button"
@@ -386,12 +386,13 @@
                                                     {{ $sub->due_date->format('M d') }}
                                                 </span>
                                             @endif
-                                            <a href="{{ \App\Helpers\TaskNav::detailUrl($sub->id) }}"
-                                               class="p-0.5 rounded text-gray-400 opacity-0 group-hover/sub:opacity-100 hover:text-brand-600 transition shrink-0"
-                                               title="Open subtask"
-                                               aria-label="Open subtask">
-                                                <x-heroicon-m-arrow-top-right-on-square class="w-3 h-3"/>
-                                            </a>
+                                            <button type="button"
+                                                    wire:click.stop="openEditModal({{ $sub->id }})"
+                                                    class="p-0.5 rounded text-gray-400 opacity-0 group-hover/sub:opacity-100 hover:text-brand-600 transition shrink-0"
+                                                    title="Edit subtask"
+                                                    aria-label="Edit subtask">
+                                                <x-heroicon-m-pencil-square class="w-3 h-3"/>
+                                            </button>
                                         </div>
                                     @endforeach
 
@@ -530,9 +531,9 @@
                                                 <a href="{{ \App\Helpers\TaskNav::detailUrl($task->id) }}" wire:navigate @click.stop class="hover:text-brand-600 dark:hover:text-brand-400 text-left">{{ $task->title }}</a>
                                             </h4>
                                         </div>
-                                        <a href="{{ \App\Helpers\TaskNav::detailUrl($task->id) }}" wire:navigate @click.stop class="p-1 rounded text-gray-400 opacity-0 group-hover:opacity-100 hover:text-brand-500 transition" title="Open task">
-                                            <x-heroicon-m-arrow-top-right-on-square class="w-3.5 h-3.5"/>
-                                        </a>
+                                        <button type="button" wire:click.stop="openEditModal({{ $task->id }})" @click.stop class="p-1 rounded text-gray-400 opacity-0 group-hover:opacity-100 hover:text-brand-500 transition" title="Edit task" aria-label="Edit task">
+                                            <x-heroicon-m-pencil-square class="w-3.5 h-3.5"/>
+                                        </button>
                                     </div>
 
                                     {{-- Cycle time chip --}}
@@ -770,9 +771,9 @@
                                             <button type="button" wire:click="approveTask({{ $t->id }})" class="px-2 py-1 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700">Approve &amp; done</button>
                                             <button type="button" @click="$wire.showReviewModal = true; $wire.openReviewModal({{ $t->id }})" class="px-2 py-1 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">Changes</button>
                                         @endif
-                                        <a href="{{ \App\Helpers\TaskNav::detailUrl($t->id) }}" class="p-1 rounded text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition {{ $isManager && $t->statusKey() === 'code_review' ? '' : 'opacity-0 group-hover:opacity-100' }}" title="Open full task workspace" aria-label="Open full task workspace">
-                                            <x-heroicon-m-arrow-top-right-on-square class="w-3.5 h-3.5"/>
-                                        </a>
+                                        <button type="button" wire:click.stop="openEditModal({{ $t->id }})" class="p-1 rounded text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition {{ $isManager && $t->statusKey() === 'code_review' ? '' : 'opacity-0 group-hover:opacity-100' }}" title="Edit task" aria-label="Edit task">
+                                            <x-heroicon-m-pencil-square class="w-3.5 h-3.5"/>
+                                        </button>
                                         @if($canDelete)
                                         <x-ui.confirm-button
                                             type="button"

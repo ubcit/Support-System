@@ -91,6 +91,7 @@ class MenuHelper
                 'name' => 'Developer Tools',
                 'subItems' => [
                     ['name' => 'Message Simulator', 'path' => '/admin/message-simulator', 'pro' => false],
+                    ['name' => 'Laravel Log Viewer', 'path' => '/admin/laravel-logs', 'pro' => false],
                 ],
             ],
             [
@@ -132,7 +133,10 @@ class MenuHelper
 
     public static function getMenuGroups()
     {
-        if (request()->is('workspace*')) {
+        $isWorkspaceContext = request()->is('workspace*')
+            && ! (auth()->user()?->canAccessAdmin() ?? false);
+
+        if ($isWorkspaceContext) {
             return [
                 [
                     'title' => 'Menu',
@@ -185,6 +189,7 @@ class MenuHelper
             'Prompt Playground' => 'sparkles',
             'Benchmark Dashboard' => 'sparkles',
             'Message Simulator' => 'code-bracket',
+            'Laravel Log Viewer' => 'list',
             'Workspace Settings' => 'settings',
             'Customers' => 'people',
             'Customer AI Limits' => 'charts',

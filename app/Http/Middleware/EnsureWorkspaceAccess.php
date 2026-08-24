@@ -16,14 +16,34 @@ class EnsureWorkspaceAccess
             return redirect()->route('login');
         }
 
-        if (! $user->canAccessWorkspace()) {
-            if ($user->canAccessAdmin()) {
-                return redirect()->route('dashboard');
-            }
+        if ($user->canAccessAdmin()) {
+            return $this->redirectAdminToMatchingRoute($request);
+        }
 
+        if (! $user->canAccessWorkspace()) {
             abort(403, 'You do not have an employee workspace profile.');
         }
 
         return $next($request);
+    }
+
+    protected function redirectAdminToMatchingRoute(Request $request): Response
+    {
+        $path = '/'.ltrim($request->path(), '/');
+        $query = $request->query();
+
+        if (preg_match('#^/workspace/tasks/([^/]+)$#', $path, $matches)) {
+            return redirect()->route('task-detail', array_merge(['record' => $matches[1]], $query));
+        }
+
+        if ($path === '/workspace/my-tasks' || str_starts_with($path, '/workspace/my-tasks/')) {
+            return redirect()->route('task-dashboard', $query);
+        }
+
+        if ($path === '/workspace/profile' || str_starts_with($path, '/workspace/profile/')) {
+            return redirect()->route('profile', $query);
+        }
+
+        return redirect()->route('dashboard', $query);
     }
 }
