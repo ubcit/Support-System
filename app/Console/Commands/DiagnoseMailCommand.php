@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\EnsureTlsCaBundle;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -16,6 +17,8 @@ class DiagnoseMailCommand extends Command
 
     public function handle(): int
     {
+        $caBundle = EnsureTlsCaBundle::apply();
+
         $this->info('Mail / queue runtime config');
         $this->table(
             ['Key', 'Value'],
@@ -28,23 +31,26 @@ class DiagnoseMailCommand extends Command
                 ['smtp.password', config('mail.mailers.smtp.password') ? '(set)' : '(empty)'],
                 ['mail.from', (string) config('mail.from.address')],
                 ['queue.default', (string) config('queue.default')],
-                ['openssl.cafile', (string) (ini_get('openssl.cafile') ?: '(empty — TLS verify may fail)')],
+                ['openssl.cafile', (string) (ini_get('openssl.cafile') ?: '(empty)')],
                 ['curl.cainfo', (string) (ini_get('curl.cainfo') ?: '(empty)')],
+                ['CA bundle resolved', $caBundle ?: '(none — OpenSSL may still use /etc/ssl/certs)'],
             ]
         );
 
-        if (! ini_get('openssl.cafile') && ! ini_get('curl.cainfo')) {
-            $this->error('No CA bundle configured — SMTP STARTTLS will fail with certificate verify failed.');
-            $this->comment('Fix: sudo apt install ca-certificates && set MAIL_CAFILE=/etc/ssl/certs/ca-certificates.crt');
+        if ($caBundle === null) {
+            $this->warn('No explicit CA file set. If SMTP fails with certificate verify failed, run:');
+            $this->comment('  sudo apt install -y ca-certificates');
+            $this->comment('  # then in .env: MAIL_CAFILE=/etc/ssl/certs/ca-certificates.crt');
+            $this->comment('  php artisan config:cache && php artisan queue:restart');
+        } else {
+            $this->info("CA bundle OK: {$caBundle}");
         }
 
         if (config('mail.default') !== 'smtp') {
             $this->error('MAIL_MAILER is not smtp. Emails will not leave the server (log/array).');
         }
 
-        if (config('queue.default') !== 'sync') {
-            $this->comment('Task/issue emails use SendNotificationEmailJob — workers must be running.');
-        }
+        $this->comment('Task/issue emails use SendNotificationEmailJob::dispatchNotify() (after HTTP response). Supervisor is still needed for other queued jobs.');
 
         $this->newLine();
         $this->info('Queue health');
@@ -55,10 +61,21 @@ class DiagnoseMailCommand extends Command
             $this->line("pending jobs: {$pending}");
             $this->line("failed jobs: {$failed}");
             if ($pending > 0) {
-                $this->warn('Jobs are waiting — start/restart queue workers (Supervisor: queue:work).');
+                $this->warn('Jobs are waiting — check Supervisor workers.');
             }
             if ($failed > 0) {
-                $this->warn('Run: php artisan queue:failed');
+                $this->warn('Old failures (often prior SSL errors). Inspect: php artisan queue:failed');
+                $this->comment('Clear them after SMTP works: php artisan queue:flush');
+
+                $samples = DB::table('failed_jobs')
+                    ->orderByDesc('id')
+                    ->limit(3)
+                    ->get(['id', 'failed_at', 'exception']);
+
+                foreach ($samples as $sample) {
+                    $snippet = str_replace("\n", ' ', (string) $sample->exception);
+                    $this->line("  #{$sample->id} @{$sample->failed_at}: ".mb_substr($snippet, 0, 160).'…');
+                }
             }
         } catch (Throwable $e) {
             $this->warn('Could not read jobs tables: '.$e->getMessage());
@@ -68,15 +85,24 @@ class DiagnoseMailCommand extends Command
             $recent = DB::table('notification_logs')
                 ->orderByDesc('id')
                 ->limit(5)
-                ->get(['id', 'type', 'status', 'created_at']);
+                ->get(['id', 'recipient', 'subject', 'body', 'status', 'created_at']);
 
             if ($recent->isNotEmpty()) {
                 $this->newLine();
                 $this->info('Recent notification_logs');
                 $this->table(
-                    ['id', 'type', 'status', 'created_at'],
-                    $recent->map(fn ($row) => [(string) $row->id, (string) $row->type, (string) $row->status, (string) $row->created_at])->all()
+                    ['id', 'recipient', 'subject', 'body', 'status', 'created_at'],
+                    $recent->map(fn ($row) => [
+                        (string) $row->id,
+                        (string) $row->recipient,
+                        (string) $row->subject,
+                        (string) $row->body,
+                        (string) $row->status,
+                        (string) $row->created_at,
+                    ])->all()
                 );
+            } else {
+                $this->line('notification_logs: (empty)');
             }
         } catch (Throwable $e) {
             $this->warn('notification_logs unavailable: '.$e->getMessage());
@@ -108,11 +134,12 @@ class DiagnoseMailCommand extends Command
             });
 
             $this->info('Smoke test completed without exception (Mail::raw is synchronous).');
+            $this->comment('SMTP is working. Create/assign a task to verify notification emails; then check notification_logs.');
         } catch (Throwable $e) {
             $this->error(get_class($e).': '.$e->getMessage());
 
             if (str_contains($e->getMessage(), 'certificate verify failed')) {
-                $this->warn('Fix: set openssl.cafile / install ca-certificates, then retry.');
+                $this->warn('Fix: sudo apt install ca-certificates && MAIL_CAFILE=/etc/ssl/certs/ca-certificates.crt');
             }
             if (str_contains($e->getMessage(), 'Connection could not be established')) {
                 $this->warn('Try MAIL_PORT=465 and MAIL_SCHEME=smtps, and allow outbound TCP 465/587.');
