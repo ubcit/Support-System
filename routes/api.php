@@ -67,6 +67,7 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('tasks', NativeTaskController::class)->parameters(['tasks' => 'uuid']);
 
         Route::prefix('tasks/{uuid}')->group(function () {
+            Route::post('/restore', [NativeTaskController::class, 'restore']);
             Route::post('/subtasks', [NativeTaskController::class, 'createSubtask']);
             Route::post('/timer/start', [NativeTaskController::class, 'startTimer']);
             Route::post('/timer/stop', [NativeTaskController::class, 'stopTimer']);

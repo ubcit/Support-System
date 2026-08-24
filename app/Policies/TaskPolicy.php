@@ -68,4 +68,14 @@ class TaskPolicy
     {
         return $user->hasPermission('tasks.delete');
     }
+
+    public function restore(User $user, Task $task): bool
+    {
+        return $user->hasPermission('tasks.delete');
+    }
+
+    public function forceDelete(User $user, Task $task): bool
+    {
+        return $user->hasPermission('tasks.delete');
+    }
 }

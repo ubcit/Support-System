@@ -1,4 +1,4 @@
-<div>
+<div wire:poll.5s>
     <x-common.page-breadcrumb pageTitle="My Tasks" compact>
         <x-slot:subtitle>{{ $filterSubtitle }}</x-slot:subtitle>
         <x-slot:actions>
@@ -31,6 +31,16 @@
                         <option value="priority">Priority</option>
                         <option value="project">Project</option>
                         <option value="assignee">Assignee</option>
+                    </select>
+                </div>
+
+                <div class="flex min-w-[140px] items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-800">
+                    <span class="shrink-0 text-[10px] font-bold uppercase text-gray-400">Tag</span>
+                    <select wire:model.live="filterTag" class="cursor-pointer border-0 bg-transparent p-0 pr-6 text-xs font-bold text-gray-800 focus:ring-0 dark:text-gray-200">
+                        <option value="">{{ count($tagOptions) ? 'All tags' : 'No tags yet' }}</option>
+                        @foreach($tagOptions as $tagId => $tagName)
+                            <option value="{{ $tagId }}">{{ $tagName }}</option>
+                        @endforeach
                     </select>
                 </div>
 
@@ -109,6 +119,9 @@
                                 @if(! $isManager && in_array($group['state_type'] ?? '', ['completed', 'closed'], true))
                                     if (String(payload).split('|')[1] === '1') return;
                                 @endif
+                            @endif
+                            window.optimisticMoveTask(taskId, $event.currentTarget.querySelector('[data-task-drop-list]'));
+                            @if(($group['type'] ?? '') === 'status')
                                 $wire.moveTaskToState(taskId, {{ $group['state_id'] ?? 0 }})
                             @elseif(($group['type'] ?? '') === 'priority')
                                 $wire.updateTaskPriority(taskId, '{{ $groupKey }}')
@@ -121,8 +134,8 @@
                             @endif
                          "
                          style="z-index: {{ $groupZIndex }}; position: relative;"
-                         class="space-y-1 transition-all duration-150 rounded-xl p-1"
-                         x-bind:class="isOver ? 'ring-2 ring-brand-500 bg-brand-50/40 dark:bg-brand-950/40 scale-[1.002]' : ''">
+                         class="space-y-1 transition-colors duration-100 rounded-xl p-1"
+                         x-bind:class="isOver ? 'ring-2 ring-brand-500 bg-brand-50/40 dark:bg-brand-950/40' : ''">
 
                         {{-- Group Header Bar --}}
                         <div class="flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200/80 dark:border-white/10 ring-1 ring-gray-950/5 dark:ring-white/10 shadow-2xs group">
@@ -160,7 +173,7 @@
                         </div>
 
                         {{-- Task Rows Container --}}
-                        <div x-show="!collapsed" class="py-2.5">
+                        <div x-show="!collapsed" class="py-2.5" data-task-drop-list>
                             @forelse($group['tasks'] as $task)
                                 @php
                                     $isSelected = in_array($task->id, $selectedTasks);
@@ -175,9 +188,11 @@
                                     $childTasks = $task->relationLoaded('directSubtasks') ? $task->directSubtasks : collect();
                                     $hasChildren = $childTasks->isNotEmpty();
                                 @endphp
-                                <div x-data="{ expanded: false }" class="space-y-0.5">
+                                <div x-data="{ expanded: false }" class="space-y-0.5" data-task-row wire:key="task-row-{{ $task->id }}">
                                 <div draggable="true"
-                                     x-on:dragstart="$event.dataTransfer.setData('text/plain', '{{ $task->id }}|{{ $task->mustPassReview() ? '1' : '0' }}'); $event.dataTransfer.effectAllowed = 'move'"
+                                     data-task-id="{{ $task->id }}"
+                                     wire:key="task-card-{{ $task->id }}"
+                                     x-on:dragstart="window.__draggingTaskEl = $event.currentTarget; $event.dataTransfer.setData('text/plain', '{{ $task->id }}|{{ $task->mustPassReview() ? '1' : '0' }}'); $event.dataTransfer.effectAllowed = 'move'"
                                      class="px-3.5 py-2 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition relative {{ $isSelected ? 'bg-brand-50 dark:bg-brand-950' : '' }} group cursor-grab active:cursor-grabbing select-none rounded-lg border border-transparent hover:border-gray-200 dark:hover:border-gray-800">
 
                                     {{-- Left Section: Drag Handle, Checkbox, Priority & Title --}}
@@ -233,6 +248,13 @@
                                             {{ $task->project?->name ?? 'General' }}
                                         </span>
 
+                                        <x-tasks.quick-tags
+                                            :task="$task"
+                                            :all-tags="$tagModels"
+                                            :editable="auth()->user()?->hasPermission('tasks.edit') ?? false"
+                                            class="hidden md:inline-flex shrink-0"
+                                        />
+
                                         <x-tasks.meta-chips :task="$task" class="hidden sm:inline-flex" />
 
                                         {{-- Checklist Progress Bar --}}
@@ -258,18 +280,23 @@
                                                 @foreach($workflowStates as $ws)
                                                 @continue(! $isManager && $task->mustPassReview() && in_array($ws->type, ['completed', 'closed'], true))
                                                 @php
-                                                    $wsColor = match($ws->type) {
-                                                        'initial' => 'text-gray-700 dark:text-gray-200',
-                                                        'active' => 'text-blue-600 dark:text-blue-400',
-                                                        'completed' => 'text-emerald-600 dark:text-emerald-400',
-                                                        default => 'text-purple-600 dark:text-purple-400',
-                                                    };
-                                                    $wsDot = match($ws->type) {
-                                                        'initial' => 'bg-gray-400',
-                                                        'active' => 'bg-blue-500',
-                                                        'completed' => 'bg-emerald-500',
-                                                        default => 'bg-purple-500',
-                                                    };
+                                                    $isReviewState = str_contains(strtolower((string) $ws->name), 'review');
+                                                    $wsColor = $isReviewState
+                                                        ? 'text-purple-600 dark:text-purple-400'
+                                                        : match($ws->type) {
+                                                            'initial' => 'text-gray-700 dark:text-gray-200',
+                                                            'active' => 'text-blue-600 dark:text-blue-400',
+                                                            'completed' => 'text-emerald-600 dark:text-emerald-400',
+                                                            default => 'text-purple-600 dark:text-purple-400',
+                                                        };
+                                                    $wsDot = $isReviewState
+                                                        ? 'bg-purple-500'
+                                                        : match($ws->type) {
+                                                            'initial' => 'bg-gray-400',
+                                                            'active' => 'bg-blue-500',
+                                                            'completed' => 'bg-emerald-500',
+                                                            default => 'bg-purple-500',
+                                                        };
                                                 @endphp
                                                 <button wire:click="moveTaskToState({{ $task->id }}, {{ $ws->id }})" @click="open = false" class="w-full px-3 py-1.5 text-left font-semibold {{ $wsColor }} hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
                                                     <span class="w-2 h-2 rounded-full {{ $wsDot }}"></span> {{ $ws->name }}
@@ -338,24 +365,46 @@
 
                                         {{-- Actions --}}
                                         <div class="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" @mousedown.stop @click.stop draggable="false" x-on:dragstart.prevent.stop>
+                                            @if($showTrashed)
+                                                @if($canDelete)
+                                                <button type="button" wire:click.stop="restoreTask({{ $task->id }})" class="p-1 rounded text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition" title="Restore task" aria-label="Restore task">
+                                                    <x-heroicon-m-arrow-uturn-left class="w-3.5 h-3.5"/>
+                                                </button>
+                                                <x-ui.confirm-button
+                                                    type="button"
+                                                    heading="Delete forever?"
+                                                    message="This permanently removes the task and cannot be undone."
+                                                    confirm-label="Delete forever"
+                                                    method="forceDeleteTask"
+                                                    :params="[$task->id]"
+                                                    variant="danger-ghost"
+                                                    size="icon-sm"
+                                                    title="Delete forever"
+                                                    aria-label="Delete forever"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                                </x-ui.confirm-button>
+                                                @endif
+                                            @else
                                             <button type="button" wire:click.stop="openEditModal({{ $task->id }})" class="p-1 rounded text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition" title="Edit task" aria-label="Edit task">
                                                 <x-heroicon-m-pencil-square class="w-3.5 h-3.5"/>
                                             </button>
                                             @if($canDelete)
                                             <x-ui.confirm-button
                                                 type="button"
-                                                heading="Delete this task?"
-                                                message="This cannot be undone."
-                                                confirm-label="Delete"
+                                                heading="Move to Trash?"
+                                                message="You can restore this task from Trash within 30 days."
+                                                confirm-label="Move to Trash"
                                                 method="deleteTask"
                                                 :params="[$task->id]"
                                                 variant="danger-ghost"
                                                 size="icon-sm"
-                                                title="Delete task"
-                                                aria-label="Delete task"
+                                                title="Move to Trash"
+                                                aria-label="Move to Trash"
                                             >
                                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
                                             </x-ui.confirm-button>
+                                            @endif
                                             @endif
                                         </div>
                                     </div>
@@ -455,12 +504,15 @@
             <div class="flex gap-4 p-2 overflow-x-auto" style="min-height: 550px;">
                 @foreach($board['columns'] as $col)
                     @php
-                        $stateColors = match ($col['state_type']) {
-                            'initial' => ['dot' => 'bg-gray-400', 'bg' => 'bg-gray-50 dark:bg-gray-800/40', 'border' => 'border-gray-200 dark:border-gray-700'],
-                            'active' => ['dot' => 'bg-blue-500', 'bg' => 'bg-blue-50/30 dark:bg-blue-950/20', 'border' => 'border-blue-200/50 dark:border-blue-900/30'],
-                            'completed' => ['dot' => 'bg-emerald-500', 'bg' => 'bg-emerald-50/30 dark:bg-emerald-950/20', 'border' => 'border-emerald-200/50 dark:border-emerald-900/30'],
-                            default => ['dot' => 'bg-gray-400', 'bg' => 'bg-gray-50 dark:bg-gray-800/40', 'border' => 'border-gray-200 dark:border-gray-700'],
-                        };
+                        $isReviewCol = str_contains(strtolower((string) ($col['name'] ?? '')), 'review');
+                        $stateColors = $isReviewCol
+                            ? ['dot' => 'bg-purple-500', 'bg' => 'bg-purple-50/30 dark:bg-purple-950/20', 'border' => 'border-purple-200/50 dark:border-purple-900/30']
+                            : match ($col['state_type']) {
+                                'initial' => ['dot' => 'bg-gray-400', 'bg' => 'bg-gray-50 dark:bg-gray-800/40', 'border' => 'border-gray-200 dark:border-gray-700'],
+                                'active' => ['dot' => 'bg-blue-500', 'bg' => 'bg-blue-50/30 dark:bg-blue-950/20', 'border' => 'border-blue-200/50 dark:border-blue-900/30'],
+                                'completed' => ['dot' => 'bg-emerald-500', 'bg' => 'bg-emerald-50/30 dark:bg-emerald-950/20', 'border' => 'border-emerald-200/50 dark:border-emerald-900/30'],
+                                default => ['dot' => 'bg-gray-400', 'bg' => 'bg-gray-50 dark:bg-gray-800/40', 'border' => 'border-gray-200 dark:border-gray-700'],
+                            };
                     @endphp
                     <div x-data="{ isOver: false }"
                          x-on:dragover.prevent="isOver = true; $event.dataTransfer.dropEffect = 'move'"
@@ -475,10 +527,11 @@
                             @if(! $isManager && in_array($col['state_type'], ['completed', 'closed'], true))
                                 if (String(payload).split('|')[1] === '1') return;
                             @endif
+                            window.optimisticMoveTask(taskId, $event.currentTarget.querySelector('[data-task-drop-list]'));
                             $wire.moveTaskToState(taskId, {{ $col['state_id'] }})
                          "
-                         class="{{ $stateColors['bg'] }} rounded-2xl border {{ $stateColors['border'] }} ring-1 ring-gray-950/5 dark:ring-white/10 flex flex-col flex-shrink-0 transition-all duration-150"
-                         x-bind:class="isOver ? 'ring-2 ring-brand-500 bg-brand-50/40 dark:bg-brand-950/40 scale-[1.01]' : ''"
+                         class="{{ $stateColors['bg'] }} rounded-2xl border {{ $stateColors['border'] }} ring-1 ring-gray-950/5 dark:ring-white/10 flex flex-col flex-shrink-0 transition-colors duration-100"
+                         x-bind:class="isOver ? 'ring-2 ring-brand-500 bg-brand-50/40 dark:bg-brand-950/40' : ''"
                          style="width: 320px;">
 
                         {{-- Column Header --}}
@@ -508,7 +561,7 @@
                         </div>
 
                         {{-- Drag Cards Container --}}
-                        <div class="flex-1 overflow-y-auto p-2.5 space-y-2.5" style="max-height: calc(100vh - 320px);">
+                        <div class="flex-1 overflow-y-auto p-2.5 space-y-2.5" data-task-drop-list style="max-height: calc(100vh - 320px);">
                             @forelse($col['tasks'] as $task)
                                 @php
                                     $isSelected = in_array($task->id, $selectedTasks);
@@ -522,7 +575,9 @@
                                     $progress = $task->calculateProgress();
                                 @endphp
                                 <div draggable="true"
-                                     x-on:dragstart="$event.dataTransfer.setData('text/plain', '{{ $task->id }}|{{ $task->mustPassReview() ? '1' : '0' }}'); $event.dataTransfer.effectAllowed = 'move'"
+                                     data-task-id="{{ $task->id }}"
+                                     wire:key="task-card-{{ $task->id }}"
+                                     x-on:dragstart="window.__draggingTaskEl = $event.currentTarget; $event.dataTransfer.setData('text/plain', '{{ $task->id }}|{{ $task->mustPassReview() ? '1' : '0' }}'); $event.dataTransfer.effectAllowed = 'move'"
                                      class="bg-white dark:bg-gray-800 rounded-xl border-l-[3.5px] {{ $priBorder }} border border-gray-200/80 dark:border-white/10 shadow-2xs hover:shadow-md hover:ring-1 hover:ring-brand-500/30 transition-all p-3 space-y-2 group cursor-grab active:cursor-grabbing select-none {{ $isSelected ? 'ring-2 ring-brand-500 bg-brand-50/20 dark:bg-brand-950/20' : '' }}">
 
                                     {{-- Card Top: Checkbox + Title + Menu --}}
@@ -546,12 +601,20 @@
                                         <x-tasks.lifecycle-chip :task="$task" />
                                     </div>
 
-                                    {{-- Project Tag --}}
-                                    @if($task->project)
-                                        <span class="inline-flex text-[10px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md">
-                                            {{ $task->project->name }}
-                                        </span>
-                                    @endif
+                                    {{-- Project + Tags --}}
+                                    <div class="flex flex-wrap items-center gap-1">
+                                        @if($task->project)
+                                            <span class="inline-flex text-[10px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md">
+                                                {{ $task->project->name }}
+                                            </span>
+                                        @endif
+                                        <x-tasks.quick-tags
+                                            :task="$task"
+                                            :all-tags="$tagModels"
+                                            :editable="auth()->user()?->hasPermission('tasks.edit') ?? false"
+                                            :max-visible="4"
+                                        />
+                                    </div>
 
                                     <x-tasks.meta-chips :task="$task" />
 
@@ -708,7 +771,14 @@
                                 <td class="px-3 py-2.5 font-semibold text-gray-900 dark:text-white max-w-[220px]">
                                     <div class="flex flex-col gap-1 min-w-0">
                                         <a href="{{ \App\Helpers\TaskNav::detailUrl($t->id) }}" wire:navigate class="hover:text-brand-600 dark:hover:text-brand-400 text-left truncate max-w-full">{{ $t->title }}</a>
-                                        <x-tasks.meta-chips :task="$t" />
+                                        <div class="flex flex-wrap items-center gap-1">
+                                            <x-tasks.quick-tags
+                                                :task="$t"
+                                                :all-tags="$tagModels"
+                                                :editable="auth()->user()?->hasPermission('tasks.edit') ?? false"
+                                            />
+                                            <x-tasks.meta-chips :task="$t" />
+                                        </div>
                                     </div>
                                 </td>
                                 <td class="px-3 py-2.5">
@@ -721,7 +791,18 @@
                                         <div x-show="open" @click.outside="open = false" x-cloak class="absolute left-0 mt-1 z-50 w-36 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1 text-xs divide-y divide-gray-100 dark:divide-gray-700">
                                             @foreach($workflowStates as $ws)
                                             @continue(! $isManager && $t->mustPassReview() && in_array($ws->type, ['completed', 'closed'], true))
-                                            <button wire:click="moveTaskToState({{ $t->id }}, {{ $ws->id }})" @click="open = false" class="w-full px-3 py-1.5 text-left font-semibold {{ match($ws->type) { 'initial' => 'text-gray-700 dark:text-gray-200', 'active' => 'text-blue-600 dark:text-blue-400', 'completed' => 'text-emerald-600 dark:text-emerald-400', default => 'text-purple-600 dark:text-purple-400' } }} hover:bg-gray-100 dark:hover:bg-gray-700">{{ $ws->name }}</button>
+                                            @php
+                                                $isReviewState = str_contains(strtolower((string) $ws->name), 'review');
+                                                $wsColor = $isReviewState
+                                                    ? 'text-purple-600 dark:text-purple-400'
+                                                    : match($ws->type) {
+                                                        'initial' => 'text-gray-700 dark:text-gray-200',
+                                                        'active' => 'text-blue-600 dark:text-blue-400',
+                                                        'completed' => 'text-emerald-600 dark:text-emerald-400',
+                                                        default => 'text-purple-600 dark:text-purple-400',
+                                                    };
+                                            @endphp
+                                            <button wire:click="moveTaskToState({{ $t->id }}, {{ $ws->id }})" @click="open = false" class="w-full px-3 py-1.5 text-left font-semibold {{ $wsColor }} hover:bg-gray-100 dark:hover:bg-gray-700">{{ $ws->name }}</button>
                                             @endforeach
                                         </div>
                                     </div>
@@ -782,15 +863,15 @@
                                         @if($canDelete)
                                         <x-ui.confirm-button
                                             type="button"
-                                            heading="Delete this task?"
-                                            message="This cannot be undone."
-                                            confirm-label="Delete"
+                                            heading="Move to Trash?"
+                                            message="You can restore this task from Trash within 30 days."
+                                            confirm-label="Move to Trash"
                                             method="deleteTask"
                                             :params="[$t->id]"
                                             variant="danger-ghost"
                                             size="icon-sm"
-                                            title="Delete task"
-                                            aria-label="Delete task"
+                                            title="Move to Trash"
+                                            aria-label="Move to Trash"
                                         >
                                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
                                         </x-ui.confirm-button>
@@ -872,6 +953,13 @@
                                     <a href="{{ \App\Helpers\TaskNav::detailUrl($dt->id) }}" wire:navigate @click.stop class="block w-full text-left text-[9px] font-semibold truncate px-1.5 py-0.5 rounded border-l-2 {{ $dtColor }} hover:opacity-80 transition" title="{{ $dt->title }}">
                                         {{ $dt->title }}
                                     </a>
+                                    @if($dt->relationLoaded('tags') && $dt->tags->isNotEmpty())
+                                        <div class="flex flex-wrap gap-0.5 px-0.5">
+                                            @foreach($dt->tags->take(2) as $tag)
+                                                <x-tasks.tag-chip :tag="$tag" size="xs" />
+                                            @endforeach
+                                        </div>
+                                    @endif
                                 @endforeach
                                 @if($dayTasks->count() > 3)
                                     <span class="text-[9px] font-bold text-gray-400 pl-1">+{{ $dayTasks->count() - 3 }} more</span>
@@ -915,6 +1003,13 @@
                             <div class="flex items-center gap-1 min-w-0">
                                 <a href="{{ \App\Helpers\TaskNav::detailUrl($gt['id']) }}" wire:navigate class="text-xs font-semibold text-gray-900 dark:text-white truncate hover:text-brand-600 text-left">{{ $gt['title'] }}</a>
                             </div>
+                            @if($gtTask?->relationLoaded('tags') && $gtTask->tags->isNotEmpty())
+                                <div class="mt-0.5 flex flex-wrap gap-0.5">
+                                    @foreach($gtTask->tags->take(2) as $tag)
+                                        <x-tasks.tag-chip :tag="$tag" size="xs" />
+                                    @endforeach
+                                </div>
+                            @endif
                             <span class="text-[10px] text-gray-400 font-mono">{{ $gt['start_date'] }} → {{ $gt['due_date'] }}</span>
                         </div>
                         <div class="flex-1 {{ $priBg }} h-6 rounded-lg overflow-hidden relative">
@@ -961,6 +1056,25 @@
 
                     <div class="h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
 
+                    @if($showTrashed)
+                        @if($canDelete)
+                        <button type="button" wire:click="bulkRestore" class="px-2.5 py-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 flex items-center gap-1.5 font-semibold transition text-emerald-700 dark:text-emerald-400">
+                            <x-heroicon-m-arrow-uturn-left class="w-3.5 h-3.5"/>
+                            <span>Restore</span>
+                        </button>
+                        <x-ui.confirm-button
+                            heading="Delete forever?"
+                            message="{{ count($selectedTasks) }} {{ count($selectedTasks) === 1 ? 'task' : 'tasks' }} will be permanently deleted."
+                            confirm-label="Delete forever"
+                            method="bulkForceDelete"
+                            variant="danger-ghost"
+                            size="xs"
+                        >
+                            <x-heroicon-o-trash class="w-3.5 h-3.5"/>
+                            <span>Delete forever</span>
+                        </x-ui.confirm-button>
+                        @endif
+                    @else
                     {{-- Bulk Status Dropdown --}}
                     <div class="relative">
                         <button @click="openStatus = !openStatus; openPriority = false; openAssignee = false; openDueDate = false"
@@ -972,9 +1086,28 @@
                         <div x-show="openStatus" @click.outside="openStatus = false" x-cloak
                              class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl py-1 text-xs divide-y divide-gray-100 dark:divide-gray-700">
                             @foreach($workflowStates as $ws)
-                            @php $slugStatus = \Illuminate\Support\Str::slug($ws->name, '_'); @endphp
-                            <button wire:click="bulkUpdateStatus('{{ $slugStatus }}')" @click="openStatus = false" class="w-full px-3 py-1.5 text-left font-medium {{ match($ws->type) { 'initial' => 'text-gray-700 dark:text-gray-200', 'active' => 'text-blue-600 dark:text-blue-400', 'completed' => 'text-emerald-600 dark:text-emerald-400', default => 'text-purple-600 dark:text-purple-400' } }} hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full {{ match($ws->type) { 'initial' => 'bg-gray-400', 'active' => 'bg-blue-500', 'completed' => 'bg-emerald-500', default => 'bg-purple-500' } }}"></span> {{ $ws->name }}
+                            @php
+                                $slugStatus = \Illuminate\Support\Str::slug($ws->name, '_');
+                                $isReviewState = str_contains(strtolower((string) $ws->name), 'review');
+                                $wsColor = $isReviewState
+                                    ? 'text-purple-600 dark:text-purple-400'
+                                    : match($ws->type) {
+                                        'initial' => 'text-gray-700 dark:text-gray-200',
+                                        'active' => 'text-blue-600 dark:text-blue-400',
+                                        'completed' => 'text-emerald-600 dark:text-emerald-400',
+                                        default => 'text-purple-600 dark:text-purple-400',
+                                    };
+                                $wsDot = $isReviewState
+                                    ? 'bg-purple-500'
+                                    : match($ws->type) {
+                                        'initial' => 'bg-gray-400',
+                                        'active' => 'bg-blue-500',
+                                        'completed' => 'bg-emerald-500',
+                                        default => 'bg-purple-500',
+                                    };
+                            @endphp
+                            <button wire:click="bulkUpdateStatus('{{ $slugStatus }}')" @click="openStatus = false" class="w-full px-3 py-1.5 text-left font-medium {{ $wsColor }} hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full {{ $wsDot }}"></span> {{ $ws->name }}
                             </button>
                             @endforeach
                         </div>
@@ -1042,16 +1175,17 @@
                     {{-- Bulk Delete Button --}}
                     @if($canDelete)
                     <x-ui.confirm-button
-                        heading="Delete selected tasks?"
-                        message="{{ count($selectedTasks) }} {{ count($selectedTasks) === 1 ? 'task' : 'tasks' }} will be permanently deleted."
-                        confirm-label="Delete"
+                        heading="Move to Trash?"
+                        message="{{ count($selectedTasks) }} {{ count($selectedTasks) === 1 ? 'task' : 'tasks' }} will be moved to Trash. You can restore within 30 days."
+                        confirm-label="Move to Trash"
                         method="bulkDelete"
                         variant="danger-ghost"
                         size="xs"
                     >
                         <x-heroicon-o-trash class="w-3.5 h-3.5"/>
-                        <span>Delete</span>
+                        <span>Trash</span>
                     </x-ui.confirm-button>
+                    @endif
                     @endif
 
                     {{-- Deselect All Button --}}
@@ -1084,6 +1218,12 @@
                 </div>
             </div>
             <x-form.select.searchable wire:model="formAssigneeIds" label="Assign To" :options="$employees" placeholder="Select employees" :multiple="true" search-placeholder="Search employees..." />
+            <x-tasks.tag-picker
+                :options="$tagOptions"
+                :tag-models="$tagModels"
+                :selected-ids="$formTagIds"
+                :selected-color="$formNewTagColor"
+            />
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <x-form.date-picker wire:model="formDueDate" label="Due Date" placeholder="Pick due date" allow-clear />
                 <x-form.date-picker wire:model="formStartDate" label="Start Date" placeholder="Pick start date" allow-clear />
@@ -1133,6 +1273,12 @@
                 <x-form.date-picker wire:model="formDueDate" label="Due Date" placeholder="Pick due date" allow-clear />
                 <x-form.date-picker wire:model="formStartDate" label="Start Date" placeholder="Pick start date" allow-clear />
             </div>
+            <x-tasks.tag-picker
+                :options="$tagOptions"
+                :tag-models="$tagModels"
+                :selected-ids="$formTagIds"
+                :selected-color="$formNewTagColor"
+            />
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Description</label>
                 <textarea wire:model="formDescription" rows="3" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
@@ -1162,4 +1308,19 @@
             <button type="submit" form="modal-review-task" class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700">Send back</button>
         </x-slot:footer>
     </x-ui.slide-form-modal>
+
+    @once
+        <script>
+            window.optimisticMoveTask = function (taskId, dropListEl) {
+                if (!dropListEl) return;
+                const el = window.__draggingTaskEl
+                    || document.querySelector('[data-task-id="' + taskId + '"]');
+                if (!el) return;
+                const moveEl = el.closest('[data-task-row]') || el;
+                if (moveEl.parentElement === dropListEl) return;
+                dropListEl.appendChild(moveEl);
+                window.__draggingTaskEl = null;
+            };
+        </script>
+    @endonce
 </div>

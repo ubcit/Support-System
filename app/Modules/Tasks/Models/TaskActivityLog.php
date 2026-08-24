@@ -45,6 +45,7 @@ class TaskActivityLog extends Model
             'task_created' => 'created this task',
             'task_archived' => 'archived this task',
             'task_deleted' => 'deleted this task',
+            'task_restored' => 'restored this task',
             'task_approved' => 'approved this task',
             'changes_requested' => 'requested changes',
             'comment_added' => 'added a comment',

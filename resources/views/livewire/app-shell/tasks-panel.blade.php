@@ -1,12 +1,13 @@
 {{-- ClickUp-style My Tasks panel: projects first, then filters, then views. --}}
 @php
-    $taskQuery = function (array $overrides = []) use ($currentView, $currentDue, $currentProject, $currentScope, $currentCompleted, $currentPriority, $currentAssignee) {
+    $taskQuery = function (array $overrides = []) use ($currentView, $currentDue, $currentProject, $currentScope, $currentCompleted, $currentTrashed, $currentPriority, $currentAssignee) {
         return \App\Helpers\TaskNav::clean([
             'view' => array_key_exists('view', $overrides) ? $overrides['view'] : $currentView,
             'project' => array_key_exists('project', $overrides) ? $overrides['project'] : $currentProject,
             'due' => array_key_exists('due', $overrides) ? $overrides['due'] : $currentDue,
             'scope' => array_key_exists('scope', $overrides) ? $overrides['scope'] : $currentScope,
             'completed' => array_key_exists('completed', $overrides) ? $overrides['completed'] : ($currentCompleted ? 1 : null),
+            'trashed' => array_key_exists('trashed', $overrides) ? $overrides['trashed'] : ($currentTrashed ? 1 : null),
             'priority' => array_key_exists('priority', $overrides) ? $overrides['priority'] : $currentPriority,
             'assignee' => array_key_exists('assignee', $overrides) ? $overrides['assignee'] : $currentAssignee,
             'queue' => array_key_exists('queue', $overrides) ? $overrides['queue'] : null,
@@ -25,7 +26,7 @@
     };
 @endphp
 
-<div class="flex h-full flex-col">
+<div class="flex h-full flex-col" wire:poll.10s>
     <div
         x-data="{ search: '' }"
         class="flex min-h-0 flex-1 flex-col"
@@ -49,20 +50,20 @@
             <ul class="space-y-0.5">
                 <li x-show="search.trim() === ''">
                     <a
-                        href="{{ $dashboardUrl(['project' => null]) }}"
+                        href="{{ $dashboardUrl(['project' => null, 'trashed' => null]) }}"
                         wire:navigate
-                        class="{{ $navClass(empty($currentProject)) }}"
+                        class="{{ $navClass(empty($currentProject) && ! $currentTrashed) }}"
                     >
-                        <span class="h-1.5 w-1.5 shrink-0 rounded-full {{ empty($currentProject) ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600' }}"></span>
+                        <span class="h-1.5 w-1.5 shrink-0 rounded-full {{ empty($currentProject) && ! $currentTrashed ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600' }}"></span>
                         <span class="min-w-0 flex-1 truncate">All projects</span>
                         <span class="shrink-0 font-mono text-[10px] text-gray-400">{{ $counts['all'] }}</span>
                     </a>
                 </li>
                 @forelse ($counts['projects'] as $project)
-                    @php $isProjectActive = (string) $currentProject === (string) $project['id']; @endphp
+                    @php $isProjectActive = ! $currentTrashed && (string) $currentProject === (string) $project['id']; @endphp
                     <li x-show="search.trim() === '' || {{ \Illuminate\Support\Js::from(mb_strtolower($project['name'])) }}.includes(search.trim().toLowerCase())">
                         <a
-                            href="{{ $dashboardUrl(['project' => $isProjectActive ? null : $project['id']]) }}"
+                            href="{{ $dashboardUrl(['project' => $isProjectActive ? null : $project['id'], 'trashed' => null]) }}"
                             wire:navigate
                             class="{{ $navClass($isProjectActive) }}"
                             title="{{ $project['name'] }}"
@@ -90,11 +91,11 @@
                 @endphp
                 @foreach ($filterItems as [$label, $key, $value, $count])
                     @php
-                        $isActive = $key === 'due' ? $currentDue === $value : $currentScope === $value;
+                        $isActive = ! $currentTrashed && ($key === 'due' ? $currentDue === $value : $currentScope === $value);
                     @endphp
                     <li>
                         <a
-                            href="{{ $dashboardUrl([$key => $isActive ? ($key === 'scope' ? 'all' : null) : $value]) }}"
+                            href="{{ $dashboardUrl([$key => $isActive ? ($key === 'scope' ? 'all' : null) : $value, 'trashed' => null, 'completed' => null]) }}"
                             wire:navigate
                             class="{{ $navClass($isActive) }}"
                         >
@@ -105,10 +106,10 @@
                     </li>
                 @endforeach
                 @if ($isManager)
-                    @php $isReview = ($currentQueue ?? null) === 'review'; @endphp
+                    @php $isReview = ! $currentTrashed && ($currentQueue ?? null) === 'review'; @endphp
                     <li>
                         <a
-                            href="{{ $dashboardUrl(['queue' => $isReview ? null : 'review', 'due' => $isReview ? $currentDue : null, 'completed' => null]) }}"
+                            href="{{ $dashboardUrl(['queue' => $isReview ? null : 'review', 'due' => $isReview ? $currentDue : null, 'completed' => null, 'trashed' => null]) }}"
                             wire:navigate
                             class="{{ $navClass($isReview) }}"
                         >
@@ -120,18 +121,31 @@
                 @endif
                 <li>
                     <a
-                        href="{{ $dashboardUrl(['completed' => $currentCompleted ? null : 1, 'due' => $currentCompleted ? $currentDue : null]) }}"
+                        href="{{ $dashboardUrl(['completed' => $currentCompleted ? null : 1, 'trashed' => null, 'due' => $currentCompleted ? $currentDue : null]) }}"
                         wire:navigate
-                        class="{{ $navClass($currentCompleted) }}"
+                        class="{{ $navClass($currentCompleted && ! $currentTrashed) }}"
                     >
                         <span class="h-1.5 w-1.5 shrink-0 rounded-full {{ $currentCompleted ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600' }}"></span>
                         <span class="min-w-0 flex-1 truncate">Completed</span>
                         <span class="shrink-0 font-mono text-[10px] text-gray-400">{{ $counts['completed'] }}</span>
                     </a>
                 </li>
-                @if ($currentDue || $currentScope !== 'all' || $currentProject || $currentCompleted || $currentPriority || $currentAssignee || ($currentQueue ?? null))
+                @if ($canDelete ?? false)
+                <li>
+                    <a
+                        href="{{ $dashboardUrl(['trashed' => $currentTrashed ? null : 1, 'completed' => null, 'due' => null, 'queue' => null]) }}"
+                        wire:navigate
+                        class="{{ $navClass($currentTrashed) }}"
+                    >
+                        <span class="h-1.5 w-1.5 shrink-0 rounded-full {{ $currentTrashed ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600' }}"></span>
+                        <span class="min-w-0 flex-1 truncate">Trash</span>
+                        <span class="shrink-0 font-mono text-[10px] text-gray-400">{{ $counts['trashed'] ?? 0 }}</span>
+                    </a>
+                </li>
+                @endif
+                @if ($currentDue || $currentScope !== 'all' || $currentProject || $currentCompleted || $currentTrashed || $currentPriority || $currentAssignee || ($currentQueue ?? null))
                     <li>
-                        <a href="{{ $dashboardUrl(['priority' => null, 'due' => null, 'project' => null, 'assignee' => null, 'scope' => 'all', 'completed' => null]) }}" wire:navigate
+                        <a href="{{ $dashboardUrl(['priority' => null, 'due' => null, 'project' => null, 'assignee' => null, 'scope' => 'all', 'completed' => null, 'trashed' => null]) }}" wire:navigate
                             class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/5 dark:hover:text-gray-300">
                             Clear filters
                         </a>
@@ -148,10 +162,10 @@
                     ['calendar', 'Calendar', 'calendar'],
                     ['timeline', 'Timeline', 'charts'],
                 ] as [$view, $label, $icon])
-                    @php $isActive = $onTaskDashboard && $currentView === $view; @endphp
+                    @php $isActive = $onTaskDashboard && $currentView === $view && ! $currentTrashed; @endphp
                     <li>
                         <a
-                            href="{{ $dashboardUrl(['view' => $view]) }}"
+                            href="{{ $dashboardUrl(['view' => $view, 'trashed' => null]) }}"
                             wire:navigate
                             class="{{ $navClass($isActive) }}"
                         >
@@ -164,6 +178,7 @@
         </div>
 
         <div class="shrink-0 border-t border-gray-200 p-2 dark:border-gray-800">
+            @if (! $currentTrashed)
             <a
                 href="{{ $dashboardUrl(['create' => 1, 'project' => $currentProject, 'view' => $currentView !== 'list' ? $currentView : null, 'scope' => $currentScope !== 'all' ? $currentScope : null]) }}"
                 wire:navigate
@@ -172,6 +187,7 @@
                 <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"/></svg>
                 New task
             </a>
+            @endif
         </div>
     </div>
 </div>

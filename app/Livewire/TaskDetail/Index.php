@@ -11,6 +11,7 @@ use Livewire\WithFileUploads;
 use Modules\Attachments\Services\AttachmentService;
 use Modules\Employees\Models\Employee;
 use Modules\Projects\Models\Project;
+use Modules\Tasks\Models\Tag;
 use Modules\Tasks\Models\Task;
 use Modules\Tasks\Models\TaskChecklist;
 use Modules\Tasks\Models\TaskChecklistItem;
@@ -41,9 +42,32 @@ class Index extends Component
 
     public array $assignedEmployeeIds = [];
 
+    public array $selectedTagIds = [];
+
+    public string $newTagName = '';
+
+    public string $newTagColor = '#6B7280';
+
     public ?float $estimatedHours = 0;
 
     public ?float $actualHours = 0;
+
+    /** Last server values used for dirty-field guards during live poll refresh. */
+    public string $syncedTitle = '';
+
+    public string $syncedDescription = '';
+
+    public ?string $syncedDueDate = null;
+
+    public ?string $syncedStartDate = null;
+
+    public ?float $syncedEstimatedHours = 0;
+
+    public ?float $syncedActualHours = 0;
+
+    public ?string $syncedUpdatedAt = null;
+
+    public int $syncedRelationStamp = 0;
 
     // Interactive component inputs
     public string $newCommentText = '';
@@ -88,10 +112,89 @@ class Index extends Component
 
     public function loadTask(): void
     {
+        $this->hydrateTaskFromServer(preserveDirty: false);
+    }
+
+    /**
+     * Live poll entry point: reload task when another user changes it,
+     * without wiping in-progress title/description/hours edits.
+     */
+    public function refreshFromServer(): void
+    {
+        if ($this->record === null || $this->record === '') {
+            return;
+        }
+
+        $probe = $this->taskProbeQuery()->first();
+
+        if (! $probe) {
+            $this->task = null;
+            session()->flash('error', 'Task not found.');
+
+            return;
+        }
+
+        $updatedAt = $probe->updated_at?->toJSON();
+        $stamp = $this->relationStampFromProbe($probe);
+
+        if (
+            $this->task
+            && $this->syncedUpdatedAt === $updatedAt
+            && $this->syncedRelationStamp === $stamp
+        ) {
+            return;
+        }
+
+        $this->hydrateTaskFromServer(preserveDirty: true);
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Builder<Task>
+     */
+    protected function taskProbeQuery()
+    {
+        $query = Task::query()->withCount([
+            'comments',
+            'tags',
+            'assignees',
+            'attachments',
+            'subtasks',
+            'checklists',
+            'activityLogs',
+        ]);
+
+        return is_numeric($this->record)
+            ? $query->whereKey((int) $this->record)
+            : $query->where('uuid', $this->record);
+    }
+
+    protected function relationStampFromProbe(Task $probe): int
+    {
+        $checklistItemsDone = TaskChecklistItem::query()
+            ->whereIn('checklist_id', TaskChecklist::query()->where('task_id', $probe->id)->select('id'))
+            ->selectRaw('count(*) as total_count, coalesce(sum(case when is_completed then 1 else 0 end), 0) as done_count')
+            ->first();
+
+        return (int) crc32(implode(':', [
+            (string) ($probe->comments_count ?? 0),
+            (string) ($probe->tags_count ?? 0),
+            (string) ($probe->assignees_count ?? 0),
+            (string) ($probe->attachments_count ?? 0),
+            (string) ($probe->subtasks_count ?? 0),
+            (string) ($probe->checklists_count ?? 0),
+            (string) ($probe->activity_logs_count ?? 0),
+            (string) ($checklistItemsDone->total_count ?? 0),
+            (string) ($checklistItemsDone->done_count ?? 0),
+        ]));
+    }
+
+    protected function hydrateTaskFromServer(bool $preserveDirty): void
+    {
         $query = Task::with([
             'project',
             'currentState',
             'assignees.user',
+            'tags',
             'checklists.items',
             'subtasks',
             'attachments',
@@ -106,6 +209,14 @@ class Index extends Component
             'creator',
             'timeLogs',
             'reviewers.employee',
+        ])->withCount([
+            'comments',
+            'tags',
+            'assignees',
+            'attachments',
+            'subtasks',
+            'checklists',
+            'activityLogs',
         ]);
 
         $this->task = is_numeric($this->record)
@@ -126,16 +237,46 @@ class Index extends Component
             return;
         }
 
-        $this->taskTitle = $this->task->title;
-        $this->description = $this->task->description ?? '';
-        $this->dueDate = $this->task->due_date?->format('Y-m-d');
-        $this->startDate = $this->task->start_date?->format('Y-m-d');
+        $serverTitle = $this->task->title;
+        $serverDescription = $this->task->description ?? '';
+        $serverDueDate = $this->task->due_date?->format('Y-m-d');
+        $serverStartDate = $this->task->start_date?->format('Y-m-d');
+        $serverEstimatedHours = (float) ($this->task->estimated_hours ?? 0);
+        $serverActualHours = (float) ($this->task->actual_hours ?? 0);
+
+        if (! $preserveDirty || $this->taskTitle === $this->syncedTitle) {
+            $this->taskTitle = $serverTitle;
+        }
+        if (! $preserveDirty || $this->description === $this->syncedDescription) {
+            $this->description = $serverDescription;
+        }
+        if (! $preserveDirty || $this->dueDate === $this->syncedDueDate) {
+            $this->dueDate = $serverDueDate;
+        }
+        if (! $preserveDirty || $this->startDate === $this->syncedStartDate) {
+            $this->startDate = $serverStartDate;
+        }
+        if (! $preserveDirty || (float) $this->estimatedHours === (float) $this->syncedEstimatedHours) {
+            $this->estimatedHours = $serverEstimatedHours;
+        }
+        if (! $preserveDirty || (float) $this->actualHours === (float) $this->syncedActualHours) {
+            $this->actualHours = $serverActualHours;
+        }
+
         $this->status = $this->task->status->value;
         $this->priority = $this->task->priority?->value ?? 'medium';
         $this->projectId = $this->task->project_id;
         $this->assignedEmployeeIds = $this->task->assignees->pluck('id')->map(fn ($id) => (int) $id)->toArray();
-        $this->estimatedHours = (float) ($this->task->estimated_hours ?? 0);
-        $this->actualHours = (float) ($this->task->actual_hours ?? 0);
+        $this->selectedTagIds = $this->task->tags->pluck('id')->map(fn ($id) => (int) $id)->toArray();
+
+        $this->syncedTitle = $serverTitle;
+        $this->syncedDescription = $serverDescription;
+        $this->syncedDueDate = $serverDueDate;
+        $this->syncedStartDate = $serverStartDate;
+        $this->syncedEstimatedHours = $serverEstimatedHours;
+        $this->syncedActualHours = $serverActualHours;
+        $this->syncedUpdatedAt = $this->task->updated_at?->toJSON();
+        $this->syncedRelationStamp = $this->relationStampFromProbe($this->task);
     }
 
     /**
@@ -284,6 +425,77 @@ class Index extends Component
         app(NativeTaskService::class)->updateAssignees($this->task, $this->assignedEmployeeIds, $this->actor());
         $this->loadTask();
         session()->flash('success', 'Assignees updated');
+    }
+
+    public function toggleTag(int $tagId): void
+    {
+        $this->authorizeTaskUpdate();
+        if (! $this->task) {
+            return;
+        }
+
+        if (in_array($tagId, $this->selectedTagIds, true)) {
+            $this->selectedTagIds = array_values(array_diff($this->selectedTagIds, [$tagId]));
+        } else {
+            $this->selectedTagIds[] = $tagId;
+        }
+
+        $this->saveTags();
+    }
+
+    public function removeTag(int $tagId): void
+    {
+        $this->authorizeTaskUpdate();
+        if (! $this->task) {
+            return;
+        }
+
+        $this->selectedTagIds = array_values(array_filter(
+            $this->selectedTagIds,
+            fn ($id) => (int) $id !== $tagId
+        ));
+        $this->saveTags();
+    }
+
+    public function createAndAttachTag(?string $name = null): void
+    {
+        $this->authorizeTaskUpdate();
+        if (! $this->task) {
+            return;
+        }
+
+        $name = trim($name ?? $this->newTagName);
+        if ($name === '') {
+            return;
+        }
+
+        $workspaceId = $this->task->workspace_id ?? $this->actor()?->workspace_id;
+        $tag = Tag::query()->firstOrCreate(
+            [
+                'workspace_id' => $workspaceId,
+                'name' => $name,
+            ],
+            ['color' => $this->newTagColor ?: '#6B7280']
+        );
+
+        if (! in_array($tag->id, $this->selectedTagIds, true)) {
+            $this->selectedTagIds[] = (int) $tag->id;
+        }
+
+        $this->newTagName = '';
+        $this->saveTags();
+    }
+
+    public function saveTags(): void
+    {
+        $this->authorizeTaskUpdate();
+        if (! $this->task) {
+            return;
+        }
+
+        app(NativeTaskService::class)->updateTags($this->task, $this->selectedTagIds, $this->actor());
+        $this->loadTask();
+        session()->flash('success', 'Tags updated');
     }
 
     public function updateProject(?int $projectId): void
@@ -503,6 +715,7 @@ class Index extends Component
 
         $allProjects = Project::pluck('name', 'id')->toArray();
         $allEmployees = Employee::query()->with('user')->orderBy('name')->get();
+        $allTags = Tag::query()->orderBy('name')->get();
         $mentionableEmployees = $this->getMentionableEmployees();
         $workflowStates = TaskQuery::defaultWorkflowStates();
 
@@ -510,6 +723,7 @@ class Index extends Component
             'task' => $this->task,
             'allProjects' => $allProjects,
             'allEmployees' => $allEmployees,
+            'allTags' => $allTags,
             'mentionableEmployees' => $mentionableEmployees,
             'workflowStates' => $workflowStates,
             'isManager' => $this->isManager(),

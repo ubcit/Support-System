@@ -7,6 +7,7 @@
     'size' => 'md',
     'nullable' => true,
     'emptyOption' => null,
+    'emptyListLabel' => 'No options yet',
 ])
 
 @php
@@ -24,6 +25,7 @@
         ];
     })->values()->all();
 
+    $optionsKey = 'select-opts-'.md5(json_encode($normalized));
     $wireModel = $attributes->wire('model');
     $isLive = $wireModel && method_exists($wireModel, 'hasModifier') && $wireModel->hasModifier('live');
     $controlClass = $size === 'sm'
@@ -32,6 +34,7 @@
 @endphp
 
 <div
+    wire:key="{{ $optionsKey }}"
     {{ $attributes->whereDoesntStartWith('wire:model')->merge(['class' => 'relative w-full']) }}
     x-data="{
         open: false,
@@ -39,6 +42,7 @@
         multiple: @js((bool) $multiple),
         options: @js($normalized),
         emptyOption: @js($emptyOption),
+        emptyListLabel: @js($emptyListLabel),
         selected: @if($isLive) @entangle($wireModel).live @else @entangle($wireModel) @endif,
         dropdownStyle: {},
         _reposition: null,
@@ -97,6 +101,12 @@
         },
         get showNoMatches() {
             return this.filtered.length === 0 && !this.showEmptyOption;
+        },
+        get emptyMessage() {
+            if (this.options.length === 0 && !this.search.trim()) {
+                return this.emptyListLabel || 'No options yet';
+            }
+            return 'No matches found';
         },
         updatePosition() {
             const btn = this.$refs.trigger;
@@ -237,9 +247,7 @@
                     </button>
                 </template>
 
-                <div x-show="showNoMatches" class="px-3 py-6 text-center text-sm text-gray-400">
-                    No matches found
-                </div>
+                <div x-show="showNoMatches" class="px-3 py-6 text-center text-sm text-gray-400" x-text="emptyMessage"></div>
             </div>
         </div>
     </template>

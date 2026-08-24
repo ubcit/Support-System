@@ -20,6 +20,7 @@ class TaskSidebarCounts
      *     week: int,
      *     unassigned: int,
      *     completed: int,
+     *     trashed: int,
      *     review: int,
      *     projects: Collection<int, array{id: int, name: string, count: int}>,
      *     employee: array|null
@@ -66,6 +67,11 @@ class TaskSidebarCounts
             'count' => (int) ($projectCounts[$project->id] ?? 0),
         ]);
 
+        $trashedQuery = Task::onlyTrashed()->whereNull('parent_id');
+        if ($actor) {
+            $trashedQuery->visibleTo($actor);
+        }
+
         $result = [
             'all' => (clone $open)->count(),
             'mine' => $mineQuery->count(),
@@ -76,6 +82,7 @@ class TaskSidebarCounts
             'completed' => Task::query()->whereNull('archived_at')->whereNull('parent_id')->whereNotNull('completed_at')
                 ->when($actor, fn ($q) => $q->visibleTo($actor))
                 ->count(),
+            'trashed' => $trashedQuery->count(),
             'review' => $reviewStateIds === []
                 ? 0
                 : (clone $open)->whereIn('current_state_id', $reviewStateIds)->count(),

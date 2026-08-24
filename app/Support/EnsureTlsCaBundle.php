@@ -2,36 +2,84 @@
 
 namespace App\Support;
 
+use Illuminate\Mail\Mailer;
+use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
+use Symfony\Component\Mailer\Transport\Smtp\Stream\SocketStream;
+
 /**
- * PHP builds (Ondřej PPA, some Herd CLI setups) often ship with an empty
+ * PHP on shared/cPanel hosts (and some FPM builds) often has an empty
  * openssl.cafile. SMTP STARTTLS then fails with:
  *   error:0A000086:SSL routines::certificate verify failed
- * against providers like Hostinger even though the cert chain is valid.
+ *
+ * We ship a Mozilla CA bundle and also inject it into the Symfony SMTP
+ * stream options — ini_set alone is not enough on many hosts.
  */
 class EnsureTlsCaBundle
 {
     /**
-     * Point OpenSSL / cURL at a system or env CA bundle when none is configured.
+     * Resolve a readable CA bundle and set PHP ini defaults.
      */
     public static function apply(?string $explicit = null): ?string
     {
-        $current = ini_get('openssl.cafile') ?: ini_get('curl.cainfo') ?: null;
-        if (is_string($current) && $current !== '' && is_readable($current)) {
-            return $current;
+        $ca = self::resolve($explicit);
+
+        if ($ca === null) {
+            return null;
         }
 
+        $current = ini_get('openssl.cafile') ?: '';
+        if ($current === '' || ! is_readable($current)) {
+            ini_set('openssl.cafile', $ca);
+            ini_set('curl.cainfo', $ca);
+        }
+
+        return $ca;
+    }
+
+    /**
+     * Force the SMTP transport to verify against a known CA file.
+     */
+    public static function applyToMailer(Mailer $mailer): void
+    {
+        $ca = self::apply();
+        if ($ca === null || ! method_exists($mailer, 'getSymfonyTransport')) {
+            return;
+        }
+
+        $transport = $mailer->getSymfonyTransport();
+        if (! $transport instanceof EsmtpTransport) {
+            return;
+        }
+
+        $stream = $transport->getStream();
+        if (! $stream instanceof SocketStream) {
+            return;
+        }
+
+        $options = $stream->getStreamOptions();
+        $options['ssl'] = array_merge($options['ssl'] ?? [], [
+            'cafile' => $ca,
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+            'allow_self_signed' => false,
+        ]);
+        $stream->setStreamOptions($options);
+    }
+
+    public static function resolve(?string $explicit = null): ?string
+    {
         foreach (self::candidates($explicit) as $path) {
-            if (! is_readable($path)) {
-                continue;
+            if (is_readable($path)) {
+                return $path;
             }
-
-            ini_set('openssl.cafile', $path);
-            ini_set('curl.cainfo', $path);
-
-            return $path;
         }
 
         return null;
+    }
+
+    public static function bundledPath(): string
+    {
+        return resource_path('certs/cacert.pem');
     }
 
     /**
@@ -42,9 +90,12 @@ class EnsureTlsCaBundle
         $paths = array_filter([
             $explicit,
             env('MAIL_CAFILE'),
+            self::bundledPath(),
             '/etc/ssl/certs/ca-certificates.crt',
             '/etc/pki/tls/certs/ca-bundle.crt',
             '/etc/ssl/cert.pem',
+            '/opt/cpanel/ea-openssl11/cert.pem',
+            '/opt/cpanel/ea-openssl/cert.pem',
             '/opt/homebrew/etc/openssl@3/cert.pem',
             '/usr/local/etc/openssl@3/cert.pem',
             getenv('HOME')

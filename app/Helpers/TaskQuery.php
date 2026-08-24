@@ -12,13 +12,26 @@ class TaskQuery
 {
     /**
      * Base My Tasks query: unarchived parent tasks, with dashboard filters applied.
+     * Pass trashed=true to list soft-deleted parents instead.
      */
     public static function dashboardQuery(array $filters, ?Employee $actor = null): Builder
     {
-        $query = Task::query()->whereNull('archived_at')->whereNull('parent_id');
+        $trashed = (bool) ($filters['trashed'] ?? false);
+
+        $query = $trashed
+            ? Task::onlyTrashed()->whereNull('parent_id')
+            : Task::query()->whereNull('archived_at')->whereNull('parent_id');
 
         if ($actor) {
             $query->visibleTo($actor);
+        }
+
+        if ($trashed) {
+            // Trash lists all deleted parents; do not apply completed filters.
+            $filters = array_merge($filters, [
+                'show_completed' => true,
+                'completed_only' => false,
+            ]);
         }
 
         return static::applyFilters($query, $filters, $actor);
@@ -79,6 +92,10 @@ class TaskQuery
             if ($stateIds !== []) {
                 $query->whereIn('current_state_id', $stateIds);
             }
+        }
+
+        if (! empty($filters['tag_id'])) {
+            $query->whereHas('tags', fn ($q) => $q->where('tags.id', (int) $filters['tag_id']));
         }
 
         return $query;

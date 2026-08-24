@@ -7,22 +7,27 @@ use Tests\TestCase;
 
 class EnsureTlsCaBundleTest extends TestCase
 {
-    public function test_apply_sets_readable_system_or_env_bundle(): void
+    public function test_bundled_mozilla_ca_is_readable(): void
+    {
+        $path = EnsureTlsCaBundle::bundledPath();
+
+        $this->assertFileExists($path);
+        $this->assertFileIsReadable($path);
+        $this->assertStringContainsString('BEGIN CERTIFICATE', (string) file_get_contents($path));
+    }
+
+    public function test_apply_resolves_a_readable_bundle(): void
     {
         $applied = EnsureTlsCaBundle::apply();
 
-        if ($applied === null) {
-            $this->markTestSkipped('No CA bundle available on this machine.');
-        }
-
+        $this->assertNotNull($applied);
         $this->assertFileIsReadable($applied);
-        $this->assertSame($applied, ini_get('openssl.cafile') ?: ini_get('curl.cainfo'));
     }
 
-    public function test_candidates_include_ubuntu_default(): void
+    public function test_candidates_include_bundled_cert(): void
     {
         $this->assertContains(
-            '/etc/ssl/certs/ca-certificates.crt',
+            EnsureTlsCaBundle::bundledPath(),
             EnsureTlsCaBundle::candidates()
         );
     }

@@ -72,6 +72,10 @@ class NativeTaskController extends Controller
             'estimated_hours' => 'nullable|numeric',
             'assignee_ids' => 'nullable|array',
             'assignee_ids.*' => 'exists:employees,id',
+            'tag_ids' => 'nullable|array',
+            'tag_ids.*' => 'integer|exists:tags,id',
+            'tags' => 'nullable|array',
+            'tags.*' => 'nullable',
         ]);
 
         $employee = $this->actor();
@@ -80,7 +84,7 @@ class NativeTaskController extends Controller
         }
         $task = $this->taskService->createTask($validated, $employee);
 
-        return response()->json(['data' => new TaskResource($task)], 201);
+        return response()->json(['data' => new TaskResource($task->loadMissing('tags'))], 201);
     }
 
     public function show(string $uuid): JsonResponse
@@ -108,6 +112,10 @@ class NativeTaskController extends Controller
             'due_date' => 'nullable|date',
             'start_date' => 'nullable|date',
             'estimated_hours' => 'nullable|numeric',
+            'tag_ids' => 'nullable|array',
+            'tag_ids.*' => 'integer|exists:tags,id',
+            'tags' => 'nullable|array',
+            'tags.*' => 'nullable',
         ]);
 
         $employee = $this->actor();
@@ -127,11 +135,23 @@ class NativeTaskController extends Controller
             $task = $moved;
         }
 
+        $tagIds = $validated['tag_ids'] ?? null;
+        $tags = $validated['tags'] ?? null;
+        unset($validated['tag_ids'], $validated['tags']);
+
         if ($validated !== []) {
             $task = $this->taskService->updateFields($task, $validated, $employee);
         }
 
-        return response()->json(['data' => new TaskResource($task->fresh(['assignees', 'checklists']))]);
+        if ($tagIds !== null || $tags !== null) {
+            $task = $this->taskService->updateTags(
+                $task,
+                array_merge($tagIds ?? [], $tags ?? []),
+                $employee
+            );
+        }
+
+        return response()->json(['data' => new TaskResource($task->fresh(['assignees', 'checklists', 'tags']))]);
     }
 
     public function destroy(string $uuid): JsonResponse
@@ -140,9 +160,23 @@ class NativeTaskController extends Controller
 
         Gate::authorize('delete', $task);
 
-        $task->delete();
+        $this->taskService->deleteTask($task, auth()->user()?->resolveEmployee());
 
-        return response()->json(['message' => 'Task soft deleted successfully']);
+        return response()->json(['message' => 'Task moved to trash successfully']);
+    }
+
+    public function restore(string $uuid): JsonResponse
+    {
+        $task = Task::onlyTrashed()->where('uuid', $uuid)->firstOrFail();
+
+        Gate::authorize('restore', $task);
+
+        $task = $this->taskService->restoreTask($task, auth()->user()?->resolveEmployee());
+
+        return response()->json([
+            'message' => 'Task restored successfully',
+            'data' => new TaskResource($task->load(['assignees', 'checklists', 'tags'])),
+        ]);
     }
 
     public function createSubtask(Request $request, string $uuid): JsonResponse

@@ -12,3 +12,4 @@ Schedule::command('notifications:daily-digest')->dailyAt('07:00');
 Schedule::command('notifications:due-soon')->dailyAt('08:00');
 Schedule::command('notifications:project-deadlines')->dailyAt('09:00');
 Schedule::command('notifications:overdue-tasks')->everySixHours();
+Schedule::command('tasks:purge-trash')->daily();

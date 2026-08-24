@@ -18,6 +18,7 @@ use App\Support\EnsureTlsCaBundle;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Http\Request;
+use Illuminate\Mail\Mailer;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -63,6 +64,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Inject CA bundle into Symfony SMTP stream (ini_set alone fails on many cPanel/FPM hosts).
+        $this->app->afterResolving(Mailer::class, function (Mailer $mailer): void {
+            EnsureTlsCaBundle::applyToMailer($mailer);
+        });
+
         // General API rate limit, applied to the whole `api` middleware group
         // via `->throttleApi()` in bootstrap/app.php. Previously there was no
         // named "api" limiter at all, so calling throttleApi() without this
@@ -130,6 +136,9 @@ class AppServiceProvider extends ServiceProvider
             AppShell::refresh();
         });
         Task::deleted(function () {
+            AppShell::refresh();
+        });
+        Task::restored(function () {
             AppShell::refresh();
         });
     }

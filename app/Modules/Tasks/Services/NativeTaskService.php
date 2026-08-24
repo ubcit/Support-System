@@ -10,6 +10,7 @@ use Modules\Employees\Models\Employee;
 use Modules\Notifications\Services\NotificationService;
 use Modules\Security\Models\Role;
 use Modules\Tasks\Enums\TaskStatus;
+use Modules\Tasks\Models\Tag;
 use Modules\Tasks\Models\Task;
 use Modules\Tasks\Models\TaskActivityLog;
 use Modules\Tasks\Models\TaskChecklist;
@@ -71,6 +72,12 @@ class NativeTaskService
             }
         }
 
+        // Tags (ids and/or create-by-name payloads)
+        $tagInput = $this->normalizeTagInput($data['tag_ids'] ?? [], $data['tags'] ?? []);
+        if ($tagInput !== []) {
+            $this->syncTags($task, $tagInput, $creator);
+        }
+
         // Activity log
         TaskActivityLog::create([
             'task_id' => $task->id,
@@ -88,7 +95,7 @@ class NativeTaskService
             }
         }
 
-        $fresh = $task->fresh(['subtasks', 'assignees', 'checklists', 'dependencies', 'stakeholders', 'project.employees', 'creator']);
+        $fresh = $task->fresh(['subtasks', 'assignees', 'checklists', 'dependencies', 'stakeholders', 'project.employees', 'creator', 'tags']);
         $this->notifyTaskCreated($fresh, $creator);
 
         return $fresh;
@@ -505,6 +512,134 @@ class NativeTaskService
     }
 
     /**
+     * Sync task tags from a mix of ids, names, or {id?, name, color?} payloads.
+     * Missing names are created in the task's workspace (ClickUp-style create-on-type).
+     *
+     * @param  list<int|string|array{id?: int, name?: string, color?: string}>  $tagsInput
+     */
+    public function syncTags(Task $task, array $tagsInput, ?Employee $actor = null): Task
+    {
+        $resolvedIds = $this->resolveTagIds($task, $tagsInput);
+        $oldIds = $task->tags()->pluck('tags.id')->map(fn ($id) => (int) $id)->all();
+        $sortedOld = $oldIds;
+        $sortedNew = $resolvedIds;
+        sort($sortedOld);
+        sort($sortedNew);
+
+        if ($sortedOld === $sortedNew) {
+            return $task->loadMissing('tags');
+        }
+
+        $task->tags()->sync($resolvedIds);
+
+        TaskActivityLog::create([
+            'task_id' => $task->id,
+            'employee_id' => $actor?->id,
+            'action' => 'tags_changed',
+            'old_value' => implode(',', $oldIds),
+            'new_value' => implode(',', $resolvedIds),
+        ]);
+
+        return $task->fresh(['tags']);
+    }
+
+    /**
+     * @param  list<int|string|array{id?: int, name?: string, color?: string}>  $tagsInput
+     */
+    public function updateTags(Task $task, array $tagsInput, ?Employee $actor = null): Task
+    {
+        return $this->syncTags($task, $tagsInput, $actor);
+    }
+
+    /**
+     * @param  list<int|string>  $tagIds
+     * @param  list<int|string|array{id?: int, name?: string, color?: string}>  $tags
+     * @return list<int|string|array{id?: int, name?: string, color?: string}>
+     */
+    protected function normalizeTagInput(array $tagIds, array $tags): array
+    {
+        return array_values(array_merge($tagIds, $tags));
+    }
+
+    /**
+     * @param  list<int|string|array{id?: int, name?: string, color?: string}>  $tagsInput
+     * @return list<int>
+     */
+    protected function resolveTagIds(Task $task, array $tagsInput): array
+    {
+        $workspaceId = $task->workspace_id ?? $task->creator?->workspace_id;
+        $resolvedIds = [];
+
+        foreach ($tagsInput as $item) {
+            if (is_int($item) || (is_string($item) && ctype_digit($item))) {
+                $query = Tag::query()->where('id', (int) $item);
+                if ($workspaceId) {
+                    $query->where('workspace_id', $workspaceId);
+                }
+                $tag = $query->first();
+                if ($tag) {
+                    $resolvedIds[] = (int) $tag->id;
+                }
+
+                continue;
+            }
+
+            if (is_array($item)) {
+                if (! empty($item['id']) && (is_int($item['id']) || ctype_digit((string) $item['id']))) {
+                    $query = Tag::query()->where('id', (int) $item['id']);
+                    if ($workspaceId) {
+                        $query->where('workspace_id', $workspaceId);
+                    }
+                    $tag = $query->first();
+                    if ($tag) {
+                        if (! empty($item['color']) && $tag->color !== $item['color']) {
+                            $tag->update(['color' => (string) $item['color']]);
+                        }
+                        $resolvedIds[] = (int) $tag->id;
+                    }
+
+                    continue;
+                }
+
+                $name = trim((string) ($item['name'] ?? ''));
+                if ($name === '') {
+                    continue;
+                }
+
+                $color = (string) ($item['color'] ?? '#6B7280');
+                $tag = Tag::query()->firstOrCreate(
+                    [
+                        'workspace_id' => $workspaceId,
+                        'name' => $name,
+                    ],
+                    ['color' => $color ?: '#6B7280']
+                );
+                $resolvedIds[] = (int) $tag->id;
+
+                continue;
+            }
+
+            if (is_string($item)) {
+                $name = trim($item);
+                if ($name === '') {
+                    continue;
+                }
+
+                $tag = Tag::query()->firstOrCreate(
+                    [
+                        'workspace_id' => $workspaceId,
+                        'name' => $name,
+                    ],
+                    ['color' => '#6B7280']
+                );
+                $resolvedIds[] = (int) $tag->id;
+            }
+        }
+
+        return array_values(array_unique($resolvedIds));
+    }
+
+    /**
      * Move a task to a different workflow state (kanban drag-drop / status
      * dropdown by state id, as opposed to updateFields()'s status-by-name).
      */
@@ -780,9 +915,70 @@ class NativeTaskService
             'action' => 'task_deleted',
         ]);
 
-        $task->assignments()->delete();
-        $task->checklists()->delete();
+        // Keep assignees/checklists so restore is full; soft-delete direct subtasks
+        // so they do not linger as orphans while the parent is in trash.
+        $task->directSubtasks()->get()->each(fn (Task $subtask) => $subtask->delete());
         $task->delete();
+    }
+
+    public function restoreTask(Task $task, ?Employee $actor = null): Task
+    {
+        $task->restore();
+
+        Task::onlyTrashed()
+            ->where('parent_id', $task->id)
+            ->get()
+            ->each(fn (Task $subtask) => $subtask->restore());
+
+        TaskActivityLog::create([
+            'task_id' => $task->id,
+            'employee_id' => $actor?->id,
+            'action' => 'task_restored',
+        ]);
+
+        return $task->fresh() ?? $task;
+    }
+
+    /**
+     * @param  list<int>  $taskIds
+     */
+    public function bulkRestore(array $taskIds, ?Employee $actor = null): int
+    {
+        $tasks = Task::onlyTrashed()->whereIn('id', $taskIds)->get();
+
+        foreach ($tasks as $task) {
+            $this->restoreTask($task, $actor);
+        }
+
+        return $tasks->count();
+    }
+
+    public function forceDeleteTask(Task $task, ?Employee $actor = null): void
+    {
+        Task::withTrashed()
+            ->where('parent_id', $task->id)
+            ->get()
+            ->each(fn (Task $subtask) => $subtask->forceDelete());
+
+        $task->forceDelete();
+    }
+
+    /**
+     * Permanently remove soft-deleted tasks older than $days days.
+     */
+    public function purgeExpiredTrash(int $days = 30): int
+    {
+        $cutoff = now()->subDays($days);
+        $tasks = Task::onlyTrashed()
+            ->whereNull('parent_id')
+            ->where('deleted_at', '<', $cutoff)
+            ->get();
+
+        foreach ($tasks as $task) {
+            $this->forceDeleteTask($task);
+        }
+
+        return $tasks->count();
     }
 
     protected function activeStateFor(Task $task): ?WorkflowState

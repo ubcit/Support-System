@@ -25,6 +25,8 @@ class TasksPanel extends Component
 
     public bool $currentCompleted = false;
 
+    public bool $currentTrashed = false;
+
     public ?string $currentPriority = null;
 
     public ?string $currentAssignee = null;
@@ -50,6 +52,7 @@ class TasksPanel extends Component
             $this->currentScope = 'mine';
         }
         $this->currentCompleted = request()->boolean('completed');
+        $this->currentTrashed = request()->boolean('trashed');
 
         $priority = request('priority');
         $this->currentPriority = in_array($priority, ['urgent', 'high', 'medium', 'low'], true) ? $priority : null;
@@ -67,6 +70,7 @@ class TasksPanel extends Component
         return view('livewire.app-shell.tasks-panel', [
             'counts' => $counts,
             'isManager' => $this->isManager(),
+            'canDelete' => auth()->user()?->hasPermission('tasks.delete') ?? false,
         ]);
     }
 }

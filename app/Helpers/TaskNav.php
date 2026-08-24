@@ -18,12 +18,22 @@ class TaskNav
             $filters['completed'] = null;
         }
 
+        if (! empty($filters['trashed']) && (filter_var($filters['trashed'], FILTER_VALIDATE_BOOLEAN) || (int) $filters['trashed'] === 1)) {
+            $filters['trashed'] = 1;
+            // Trash is exclusive of completed / other queue filters.
+            $filters['completed'] = null;
+            $filters['queue'] = null;
+        } else {
+            $filters['trashed'] = null;
+        }
+
         $query = [
             'view' => $filters['view'] ?? null,
             'project' => $filters['project'] ?? null,
             'due' => $filters['due'] ?? null,
             'scope' => $filters['scope'] ?? null,
             'completed' => $filters['completed'] ?? null,
+            'trashed' => $filters['trashed'] ?? null,
             'priority' => $filters['priority'] ?? null,
             'assignee' => $filters['assignee'] ?? null,
             'status' => $filters['status'] ?? null,
@@ -60,6 +70,7 @@ class TaskNav
             'due' => request('due'),
             'scope' => request('scope'),
             'completed' => request()->has('completed') ? request('completed') : null,
+            'trashed' => request()->has('trashed') ? request('trashed') : null,
             'priority' => request('priority'),
             'assignee' => request('assignee'),
             'status' => request('status'),

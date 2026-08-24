@@ -9,6 +9,7 @@ use Illuminate\Support\Collection;
 use Livewire\Component;
 use Modules\Employees\Models\Employee;
 use Modules\Projects\Models\Project;
+use Modules\Tasks\Models\Tag;
 use Modules\Tasks\Models\Task;
 use Modules\Tasks\Services\GanttTimelineService;
 use Modules\Tasks\Services\KanbanEngineService;
@@ -37,6 +38,8 @@ class Index extends Component
 
     public ?string $filterAssignee = null;
 
+    public ?string $filterTag = null;
+
     public ?string $filterStatus = null;
 
     public ?string $filterDue = null;
@@ -46,6 +49,8 @@ class Index extends Component
     public string $filterReview = '';
 
     public bool $showCompleted = false;
+
+    public bool $showTrashed = false;
 
     // Calendar navigation
     public int $calendarMonth = 0;
@@ -70,7 +75,7 @@ class Index extends Component
     {
         $resetPageOn = [
             'searchQuery', 'filterProject', 'filterPriority', 'filterAssignee',
-            'filterStatus', 'filterDue', 'scope', 'showCompleted', 'filterReview',
+            'filterTag', 'filterStatus', 'filterDue', 'scope', 'showCompleted', 'showTrashed', 'filterReview',
             'sortBy', 'sortDirection', 'groupBy', 'currentView',
         ];
 
@@ -87,10 +92,6 @@ class Index extends Component
         // Default employees (non-managers) to "My Tasks" scope
         if (! request()->filled('scope') && ! $this->isManager()) {
             $this->scope = 'mine';
-        }
-
-        if (request()->boolean('create')) {
-            $this->openCreateModal();
         }
 
         if (request()->filled('view') && in_array(request('view'), ['list', 'board', 'table', 'calendar', 'timeline'], true)) {
@@ -113,6 +114,10 @@ class Index extends Component
             $this->filterAssignee = (string) request('assignee');
         }
 
+        if (request()->filled('tag')) {
+            $this->filterTag = (string) request('tag');
+        }
+
         if (request()->filled('scope') && in_array(request('scope'), ['all', 'mine', 'created', 'unassigned'], true)) {
             $this->scope = request('scope');
         }
@@ -129,7 +134,18 @@ class Index extends Component
             $this->filterReview = (string) request('queue');
         }
 
-        if (request()->filled('task')) {
+        if (request()->boolean('trashed')) {
+            $this->showTrashed = true;
+            $this->currentView = 'list';
+            $this->showCompleted = false;
+            $this->filterReview = '';
+        }
+
+        if (request()->boolean('create') && ! $this->showTrashed) {
+            $this->openCreateModal();
+        }
+
+        if (request()->filled('task') && ! $this->showTrashed) {
             $this->openEditModal((int) request('task'));
         }
     }
@@ -141,17 +157,25 @@ class Index extends Component
             'filterProject' => ['as' => 'project', 'except' => ''],
             'filterPriority' => ['as' => 'priority', 'except' => ''],
             'filterAssignee' => ['as' => 'assignee', 'except' => ''],
+            'filterTag' => ['as' => 'tag', 'except' => ''],
             'filterDue' => ['as' => 'due', 'except' => ''],
             'filterStatus' => ['as' => 'status', 'except' => ''],
             'filterReview' => ['as' => 'queue', 'except' => ''],
             'scope' => ['as' => 'scope', 'except' => 'all'],
             'showCompleted' => ['as' => 'completed', 'except' => false],
+            'showTrashed' => ['as' => 'trashed', 'except' => false],
             'editingTaskId' => ['as' => 'task', 'except' => null],
         ];
     }
 
     public function setView(string $view): void
     {
+        if ($this->showTrashed) {
+            $this->currentView = 'list';
+
+            return;
+        }
+
         $this->currentView = $view;
     }
 
@@ -463,7 +487,39 @@ class Index extends Component
         app(NativeTaskService::class)->bulkDelete($this->selectedTasks, $this->actor());
 
         $this->selectedTasks = [];
-        session()->flash('success', "{$count} tasks deleted.");
+        session()->flash('success', "{$count} tasks moved to trash.");
+    }
+
+    public function bulkRestore(): void
+    {
+        $this->authorizePermission('tasks.delete');
+        if (empty($this->selectedTasks)) {
+            return;
+        }
+
+        $count = count($this->selectedTasks);
+        app(NativeTaskService::class)->bulkRestore($this->selectedTasks, $this->actor());
+
+        $this->selectedTasks = [];
+        session()->flash('success', "{$count} tasks restored.");
+    }
+
+    public function bulkForceDelete(): void
+    {
+        $this->authorizePermission('tasks.delete');
+        if (empty($this->selectedTasks)) {
+            return;
+        }
+
+        $count = 0;
+        $service = app(NativeTaskService::class);
+        foreach (Task::onlyTrashed()->whereIn('id', $this->selectedTasks)->get() as $task) {
+            $service->forceDeleteTask($task, $this->actor());
+            $count++;
+        }
+
+        $this->selectedTasks = [];
+        session()->flash('success', "{$count} tasks permanently deleted.");
     }
 
     // Create / Edit task modals
@@ -492,6 +548,12 @@ class Index extends Component
     public mixed $formAssigneeId = null;
 
     public array $formAssigneeIds = [];
+
+    public array $formTagIds = [];
+
+    public string $formNewTagName = '';
+
+    public string $formNewTagColor = '#6B7280';
 
     public ?string $formDueDate = null;
 
@@ -523,7 +585,7 @@ class Index extends Component
         $this->showEditModal = true;
         $this->editingTaskId = $taskId;
 
-        $task = Task::with(['assignees', 'reviewers'])->find($taskId);
+        $task = Task::with(['assignees', 'reviewers', 'tags'])->find($taskId);
         if (! $task) {
             $this->closeEditModal();
 
@@ -536,6 +598,7 @@ class Index extends Component
         $this->formPriority = $task->priority?->value ?? 'medium';
         $this->formStatus = $task->statusKey();
         $this->formAssigneeIds = $task->assignees->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $this->formTagIds = $task->tags->pluck('id')->map(fn ($id) => (string) $id)->all();
         $this->formDueDate = $task->due_date?->format('Y-m-d');
         $this->formStartDate = $task->start_date?->format('Y-m-d');
         $this->formDescription = (string) $task->description;
@@ -582,6 +645,7 @@ class Index extends Component
             'current_state_id' => $initialState?->id,
             'created_by' => $actor?->id,
             'assignee_ids' => $assigneeIds,
+            'tag_ids' => collect($this->formTagIds)->filter()->map(fn ($id) => (int) $id)->values()->all(),
         ], $actor);
 
         $this->showCreateModal = false;
@@ -622,9 +686,86 @@ class Index extends Component
         ], $actor);
 
         $taskService->updateAssignees($task, $this->formAssigneeIds, $actor);
+        $taskService->updateTags(
+            $task,
+            collect($this->formTagIds)->filter()->map(fn ($id) => (int) $id)->values()->all(),
+            $actor
+        );
 
         $this->closeEditModal();
         session()->flash('success', 'Task Updated');
+    }
+
+    public function createFormTag(?string $name = null): void
+    {
+        $name = trim($name ?? $this->formNewTagName);
+        if ($name === '') {
+            return;
+        }
+
+        $workspaceId = $this->actor()?->workspace_id;
+        $tag = Tag::query()->firstOrCreate(
+            [
+                'workspace_id' => $workspaceId,
+                'name' => $name,
+            ],
+            ['color' => $this->formNewTagColor ?: '#6B7280']
+        );
+
+        $id = (string) $tag->id;
+        if (! in_array($id, $this->formTagIds, true)) {
+            $this->formTagIds[] = $id;
+        }
+
+        $this->formNewTagName = '';
+    }
+
+    public function toggleTaskTag(int $taskId, int $tagId): void
+    {
+        $this->authorizePermission('tasks.edit');
+        $task = Task::with('tags')->find($taskId);
+        if (! $task) {
+            return;
+        }
+
+        $ids = $task->tags->pluck('id')->map(fn ($id) => (int) $id)->all();
+        if (in_array($tagId, $ids, true)) {
+            $ids = array_values(array_diff($ids, [$tagId]));
+        } else {
+            $ids[] = $tagId;
+        }
+
+        app(NativeTaskService::class)->updateTags($task, $ids, $this->actor());
+    }
+
+    public function quickCreateTaskTag(int $taskId, string $name, ?string $color = null): void
+    {
+        $this->authorizePermission('tasks.edit');
+        $name = trim($name);
+        if ($name === '') {
+            return;
+        }
+
+        $task = Task::with('tags')->find($taskId);
+        if (! $task) {
+            return;
+        }
+
+        $workspaceId = $task->workspace_id ?? $this->actor()?->workspace_id;
+        $tag = Tag::query()->firstOrCreate(
+            [
+                'workspace_id' => $workspaceId,
+                'name' => $name,
+            ],
+            ['color' => $color ?: $this->formNewTagColor ?: '#6B7280']
+        );
+
+        $ids = $task->tags->pluck('id')->map(fn ($id) => (int) $id)->all();
+        if (! in_array((int) $tag->id, $ids, true)) {
+            $ids[] = (int) $tag->id;
+        }
+
+        app(NativeTaskService::class)->updateTags($task, $ids, $this->actor());
     }
 
     protected function resetTaskForm(): void
@@ -636,6 +777,9 @@ class Index extends Component
         $this->formStatus = 'to_do';
         $this->formAssigneeId = null;
         $this->formAssigneeIds = [];
+        $this->formTagIds = [];
+        $this->formNewTagName = '';
+        $this->formNewTagColor = '#6B7280';
         $this->formDueDate = null;
         $this->formStartDate = null;
         $this->formDescription = '';
@@ -648,7 +792,27 @@ class Index extends Component
         $task = Task::find($taskId);
         if ($task) {
             app(NativeTaskService::class)->deleteTask($task, $this->actor());
-            session()->flash('success', 'Task deleted.');
+            session()->flash('success', 'Task moved to trash.');
+        }
+    }
+
+    public function restoreTask(int $taskId): void
+    {
+        $this->authorizePermission('tasks.delete');
+        $task = Task::onlyTrashed()->find($taskId);
+        if ($task) {
+            app(NativeTaskService::class)->restoreTask($task, $this->actor());
+            session()->flash('success', 'Task restored.');
+        }
+    }
+
+    public function forceDeleteTask(int $taskId): void
+    {
+        $this->authorizePermission('tasks.delete');
+        $task = Task::onlyTrashed()->find($taskId);
+        if ($task) {
+            app(NativeTaskService::class)->forceDeleteTask($task, $this->actor());
+            session()->flash('success', 'Task permanently deleted.');
         }
     }
 
@@ -752,8 +916,10 @@ class Index extends Component
             'due' => $this->filterDue = null,
             'priority' => $this->filterPriority = null,
             'assignee' => $this->filterAssignee = null,
+            'tag' => $this->filterTag = null,
             'status' => $this->filterStatus = null,
             'completed' => $this->showCompleted = false,
+            'trashed' => $this->showTrashed = false,
             'review' => $this->filterReview = '',
             'search' => $this->searchQuery = '',
             default => null,
@@ -770,11 +936,13 @@ class Index extends Component
             'project_id' => $this->filterProject ? (int) $this->filterProject : null,
             'priority' => $this->filterPriority,
             'assignee_id' => $this->filterAssignee ? (int) $this->filterAssignee : null,
+            'tag_id' => $this->filterTag ? (int) $this->filterTag : null,
             'due' => $this->filterDue,
             'scope' => $this->scope,
             'status' => $this->filterStatus ?: ($this->filterReview === 'review' ? 'review' : null),
             'show_completed' => $this->showCompleted || $this->filterReview === 'done_recent',
             'completed_only' => $this->showCompleted || $this->filterReview === 'done_recent',
+            'trashed' => $this->showTrashed,
         ];
     }
 
@@ -788,12 +956,13 @@ class Index extends Component
             ->with([
                 'assignees.user',
                 'project',
+                'tags',
                 'checklists.items',
                 'currentState',
                 'reviewers',
                 'directSubtasks' => fn ($q) => $q
                     ->whereNull('archived_at')
-                    ->with(['currentState', 'assignees.user'])
+                    ->with(['currentState', 'assignees.user', 'tags'])
                     ->orderBy('sort_order')
                     ->orderBy('id'),
                 'activityLogs' => fn ($q) => $q->where(function ($q) {
@@ -826,14 +995,15 @@ class Index extends Component
 
         $board = ['columns' => []];
         $timeline = ['tasks' => []];
-        if ($this->currentView === 'board') {
+        $view = $this->showTrashed ? 'list' : $this->currentView;
+        if ($view === 'board') {
             $board = app(KanbanEngineService::class)->getBoardData(
                 $filters['project_id'],
                 null,
                 array_merge($filters, ['actor' => $actor]),
             );
         }
-        if ($this->currentView === 'timeline') {
+        if ($view === 'timeline') {
             $timeline = app(GanttTimelineService::class)->getTimelineData($filters['project_id'], $filters, $actor);
         }
 
@@ -842,15 +1012,20 @@ class Index extends Component
             : null;
 
         TaskNav::remember([
-            'view' => $this->currentView,
+            'view' => $this->showTrashed ? 'list' : $this->currentView,
             'project' => $this->filterProject,
             'due' => $this->filterDue,
             'scope' => $this->scope,
             'completed' => $this->showCompleted ? 1 : null,
+            'trashed' => $this->showTrashed ? 1 : null,
             'priority' => $this->filterPriority,
             'assignee' => $this->filterAssignee,
+            'tag' => $this->filterTag,
             'status' => $this->filterStatus,
         ]);
+
+        $tagModels = Tag::query()->orderBy('name')->get();
+        $tagOptions = $tagModels->pluck('name', 'id')->toArray();
 
         return view('livewire.task-dashboard.index', [
             'tasks' => $tasks,
@@ -861,13 +1036,16 @@ class Index extends Component
             'employees' => $employees,
             'employeeRoster' => $employeeRoster,
             'workflowStates' => $workflowStates,
+            'tagOptions' => $tagOptions,
+            'tagModels' => $tagModels,
             'selectedProjectName' => $selectedProjectName,
             'filterSubtitle' => $this->filterSubtitle($selectedProjectName),
-            'activeFilters' => $this->activeFilterChips($selectedProjectName, $employees),
+            'activeFilters' => $this->activeFilterChips($selectedProjectName, $employees, $tagOptions),
             'isManager' => $this->isManager(),
-            'canCreate' => $this->canCreateTasks(),
+            'canCreate' => $this->canCreateTasks() && ! $this->showTrashed,
             'canDelete' => $this->canDeleteTasks(),
             'hasMoreTasks' => $hasMoreTasks,
+            'showTrashed' => $this->showTrashed,
         ]);
     }
 
@@ -997,12 +1175,14 @@ class Index extends Component
                     'type' => 'status',
                     'state_id' => $state->id,
                     'state_type' => $state->type,
-                    'color' => match ($state->type) {
-                        'initial' => 'gray',
-                        'active' => 'blue',
-                        'completed' => 'emerald',
-                        default => 'gray',
-                    },
+                    'color' => str_contains(strtolower((string) $state->name), 'review')
+                        ? 'purple'
+                        : match ($state->type) {
+                            'initial' => 'gray',
+                            'active' => 'blue',
+                            'completed' => 'emerald',
+                            default => 'gray',
+                        },
                     'tasks' => $groupTasks,
                 ]);
             }
@@ -1037,14 +1217,19 @@ class Index extends Component
             $parts[] = 'Completed';
         }
 
+        if ($this->showTrashed) {
+            $parts[] = 'Trash';
+        }
+
         return implode(' · ', $parts);
     }
 
     /**
      * @param  array<int, string>  $employees
+     * @param  array<int, string>  $tagOptions
      * @return list<array{key: string, label: string}>
      */
-    protected function activeFilterChips(?string $selectedProjectName, array $employees): array
+    protected function activeFilterChips(?string $selectedProjectName, array $employees, array $tagOptions = []): array
     {
         $chips = [];
 
@@ -1073,8 +1258,14 @@ class Index extends Component
         if ($this->filterAssignee && isset($employees[(int) $this->filterAssignee])) {
             $chips[] = ['key' => 'assignee', 'label' => $employees[(int) $this->filterAssignee]];
         }
+        if ($this->filterTag && isset($tagOptions[(int) $this->filterTag])) {
+            $chips[] = ['key' => 'tag', 'label' => 'Tag: '.$tagOptions[(int) $this->filterTag]];
+        }
         if ($this->showCompleted) {
             $chips[] = ['key' => 'completed', 'label' => 'Completed'];
+        }
+        if ($this->showTrashed) {
+            $chips[] = ['key' => 'trashed', 'label' => 'Trash'];
         }
         if ($this->filterReview === 'review') {
             $chips[] = ['key' => 'review', 'label' => 'Review Queue'];

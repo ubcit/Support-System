@@ -1,4 +1,4 @@
-<div>
+<div wire:poll.5s="refreshFromServer">
     @if(!$task)
         <div class="p-8 text-center bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-800">
             <x-heroicon-o-exclamation-triangle class="w-12 h-12 text-amber-500 mx-auto mb-3"/>
@@ -51,14 +51,14 @@
                     {{-- Delete Task --}}
                     @can('delete', $task)
                         <x-ui.confirm-button
-                            heading="Delete this task?"
-                            message="This cannot be undone."
-                            confirm-label="Delete"
+                            heading="Move to Trash?"
+                            message="You can restore this task from Trash within 30 days."
+                            confirm-label="Move to Trash"
                             method="deleteTask"
                             variant="danger"
                             size="icon"
-                            title="Delete Task"
-                            aria-label="Delete Task"
+                            title="Move to Trash"
+                            aria-label="Move to Trash"
                         >
                             <x-heroicon-o-trash class="h-4 w-4"/>
                         </x-ui.confirm-button>
@@ -533,6 +533,62 @@
                                         <span class="font-medium text-gray-800 dark:text-gray-200">{{ $emp->name }}</span>
                                     </label>
                                 @endforeach
+                            </div>
+                        </div>
+
+                        {{-- Tags --}}
+                        <div x-data="{ open: false }" class="space-y-1.5 relative">
+                            <label class="text-xs font-semibold text-gray-500 dark:text-gray-400">Tags ({{ count($selectedTagIds) }})</label>
+
+                            <div class="flex flex-wrap gap-1.5 min-h-[2rem]">
+                                @forelse($task->tags as $tag)
+                                    <x-tasks.tag-chip :tag="$tag" size="xs" removable remove-method="removeTag({{ $tag->id }})" />
+                                @empty
+                                    <span class="text-xs text-gray-400 italic">No tags yet — create one below</span>
+                                @endforelse
+                            </div>
+
+                            <button @click="open = !open" type="button" class="w-full text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl py-2 px-3 flex items-center justify-between">
+                                <span class="text-gray-500">Search or create tags</span>
+                                <x-heroicon-m-chevron-down class="w-3.5 h-3.5 text-gray-400 shrink-0"/>
+                            </button>
+
+                            <div x-show="open" @click.outside="open = false" x-cloak class="absolute left-0 right-0 mt-1 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-2 space-y-2 max-h-64 overflow-y-auto">
+                                @foreach($allTags as $tag)
+                                    @php $isOn = in_array($tag->id, $selectedTagIds, true); @endphp
+                                    <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-xs">
+                                        <input type="checkbox"
+                                               wire:click="toggleTag({{ $tag->id }})"
+                                               {{ $isOn ? 'checked' : '' }}
+                                               class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 focus:ring-brand-500">
+                                        <x-tasks.tag-chip :tag="$tag" size="xs" />
+                                    </label>
+                                @endforeach
+
+                                <div class="border-t border-gray-100 dark:border-gray-700 pt-2 space-y-2">
+                                    <input
+                                        wire:model="newTagName"
+                                        wire:keydown.enter.prevent="createAndAttachTag"
+                                        type="text"
+                                        maxlength="50"
+                                        placeholder="Search or create tag…"
+                                        class="w-full h-8 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 text-xs"
+                                    />
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-1">
+                                            @foreach(['#6B7280', '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'] as $color)
+                                                <button
+                                                    type="button"
+                                                    wire:click="$set('newTagColor', '{{ $color }}')"
+                                                    class="h-4 w-4 rounded-full border-2 {{ $newTagColor === $color ? 'border-gray-900 dark:border-white' : 'border-transparent' }}"
+                                                    style="background-color: {{ $color }};"
+                                                    aria-label="Pick color"
+                                                ></button>
+                                            @endforeach
+                                        </div>
+                                        <button type="button" wire:click="createAndAttachTag" class="text-[11px] font-semibold text-brand-600 hover:underline">Add</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
