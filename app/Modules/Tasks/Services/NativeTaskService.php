@@ -588,7 +588,6 @@ class NativeTaskService
         $taskTitle = $task->title ?: 'Task';
         $authorName = $actor?->name ?? 'Someone';
         $preview = Str::limit(trim($comment->content), 120);
-        $actionUrl = TaskNav::detailUrl($task->id, []);
 
         foreach ($mentionedIds as $employeeId) {
             if ($employeeId === $actor?->id) {
@@ -599,7 +598,7 @@ class NativeTaskService
                 'employee_id' => $employeeId,
             ]);
 
-            $employee = Employee::find($employeeId);
+            $employee = Employee::with('user')->find($employeeId);
 
             if (! $employee) {
                 continue;
@@ -611,7 +610,7 @@ class NativeTaskService
                 type: 'comment_mention',
                 employee: $employee,
                 userId: $employee->user_id,
-                actionUrl: $actionUrl,
+                actionUrl: TaskNav::detailUrlFor($employee->user, $task->id, []),
                 metadata: [
                     'task_id' => $task->id,
                     'task_comment_id' => $comment->id,
@@ -795,8 +794,7 @@ class NativeTaskService
 
     protected function notifyAssignees(Task $task, Employee $actor, string $title, string $body, string $type): void
     {
-        $task->loadMissing('assignees');
-        $actionUrl = TaskNav::detailUrl($task->id, []);
+        $task->loadMissing('assignees.user');
         $notificationService = app(NotificationService::class);
 
         foreach ($task->assignees as $assignee) {
@@ -810,7 +808,7 @@ class NativeTaskService
                 type: $type,
                 employee: $assignee,
                 userId: $assignee->user_id,
-                actionUrl: $actionUrl,
+                actionUrl: TaskNav::detailUrlFor($assignee->user, $task->id, []),
                 metadata: ['task_id' => $task->id],
             );
 
@@ -824,16 +822,16 @@ class NativeTaskService
             return;
         }
 
-        $task->loadMissing(['reviewers.employee', 'assignees']);
+        $task->loadMissing(['reviewers.employee.user', 'assignees']);
         $recipients = $task->reviewers
             ->pluck('employee')
             ->filter();
 
         if ($recipients->isEmpty()) {
             $recipients = $this->managersFor($task);
+            $recipients->loadMissing('user');
         }
 
-        $actionUrl = TaskNav::detailUrl($task->id, []);
         $actorName = $actor?->name ?? 'Someone';
         $notificationService = app(NotificationService::class);
 
@@ -845,13 +843,15 @@ class NativeTaskService
                 continue;
             }
 
+            $recipient->loadMissing('user');
+
             $notificationService->send(
                 title: 'Ready for review: '.($task->title ?: 'Task'),
                 body: $actorName.' moved this task to Review.',
                 type: 'review_requested',
                 employee: $recipient,
                 userId: $recipient->user_id,
-                actionUrl: $actionUrl,
+                actionUrl: TaskNav::detailUrlFor($recipient->user, $task->id, []),
                 metadata: ['task_id' => $task->id],
             );
 
@@ -910,7 +910,7 @@ class NativeTaskService
      */
     protected function notifyTaskCreated(Task $task, ?Employee $creator = null): void
     {
-        $actionUrl = TaskNav::detailUrl($task->id, []);
+        $task->loadMissing(['assignees.user', 'project.employees.user']);
         $notificationService = app(NotificationService::class);
         $creatorName = $creator?->name ?? $task->creator?->name ?? 'Someone';
         $assigneeIds = $task->assignees->pluck('id')->map(fn ($id) => (int) $id)->all();
@@ -926,7 +926,7 @@ class NativeTaskService
                 type: 'task_assigned',
                 employee: $assignee,
                 userId: $assignee->user_id,
-                actionUrl: $actionUrl,
+                actionUrl: TaskNav::detailUrlFor($assignee->user, $task->id, []),
                 metadata: ['task_id' => $task->id],
             );
 
@@ -937,7 +937,6 @@ class NativeTaskService
             return;
         }
 
-        $task->loadMissing('project.employees');
         $notified = collect($assigneeIds);
         if ($creator) {
             $notified->push((int) $creator->id);
@@ -957,7 +956,7 @@ class NativeTaskService
                 type: 'task_created',
                 employee: $member,
                 userId: $member->user_id,
-                actionUrl: $actionUrl,
+                actionUrl: TaskNav::detailUrlFor($member->user, $task->id, []),
                 metadata: ['task_id' => $task->id, 'project_id' => $task->project_id],
             );
         }
@@ -975,7 +974,6 @@ class NativeTaskService
             return;
         }
 
-        $actionUrl = TaskNav::detailUrl($task->id, []);
         $notificationService = app(NotificationService::class);
         $actorName = $actor?->name ?? 'Someone';
 
@@ -984,7 +982,7 @@ class NativeTaskService
                 continue;
             }
 
-            $employee = Employee::find($employeeId);
+            $employee = Employee::with('user')->find($employeeId);
             if (! $employee) {
                 continue;
             }
@@ -995,7 +993,7 @@ class NativeTaskService
                 type: 'task_assigned',
                 employee: $employee,
                 userId: $employee->user_id,
-                actionUrl: $actionUrl,
+                actionUrl: TaskNav::detailUrlFor($employee->user, $task->id, []),
                 metadata: ['task_id' => $task->id],
             );
 

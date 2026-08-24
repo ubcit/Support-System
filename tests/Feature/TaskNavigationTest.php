@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Helpers\AppShell;
 use App\Helpers\TaskNav;
+use App\Helpers\TaskSidebarCounts;
 use App\Livewire\AppShell\TasksPanel;
 use App\Livewire\TaskDashboard\Index;
 use App\Models\User;
@@ -118,7 +119,7 @@ class TaskNavigationTest extends TestCase
             ->assertDontSee(route('task-dashboard'), false);
     }
 
-    public function test_my_tasks_title_links_to_task_detail_and_edit_modal_still_works(): void
+    public function test_my_tasks_title_links_to_task_detail_and_edit_button_opens_modal(): void
     {
         $boss = User::where('email', 'boss@thespace.app')->firstOrFail();
         $todo = WorkflowState::where('name', 'To Do')->firstOrFail();
@@ -137,8 +138,9 @@ class TaskNavigationTest extends TestCase
             ->assertOk()
             ->assertSee('Open me in a panel')
             ->assertSee($detailUrl, false)
-            ->assertDontSee('wire:click.stop="openEditModal('.$task->id.')"', false)
-            ->assertDontSee('The list stays open');
+            ->assertSee('wire:click.stop="openEditModal('.$task->id.')"', false)
+            ->assertSee('Edit task')
+            ->assertSee('The list stays open');
 
         $this->get(route('task-dashboard', ['task' => $task->id]))
             ->assertOk()
@@ -179,7 +181,7 @@ class TaskNavigationTest extends TestCase
             ->assertSee('Sidebar Delete Project')
             ->assertSee('Assigned to me');
 
-        $this->assertSame(1, \App\Helpers\TaskSidebarCounts::for($employee, true)['mine']);
+        $this->assertSame(1, TaskSidebarCounts::for($employee, true)['mine']);
 
         Livewire::actingAs($boss)
             ->test(Index::class)
@@ -191,6 +193,6 @@ class TaskNavigationTest extends TestCase
         $sidebar->dispatch(AppShell::UPDATED_EVENT)
             ->assertSee('Sidebar Delete Project');
 
-        $this->assertSame(0, \App\Helpers\TaskSidebarCounts::for($employee, true)['mine']);
+        $this->assertSame(0, TaskSidebarCounts::for($employee, true)['mine']);
     }
 }

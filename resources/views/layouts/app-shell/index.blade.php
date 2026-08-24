@@ -5,7 +5,8 @@
     // Everything here is pure lookup/derivation from MenuHelper — the single
     // source of truth for nav items — plus the current request path. No new
     // routes or menu structures are invented here.
-    $isWorkspaceContext = request()->is('workspace*');
+    $isWorkspaceContext = request()->is('workspace*')
+        && ! (auth()->user()?->canAccessAdmin() ?? false);
 
     $mainItems = collect(MenuHelper::getMainNavItems());
     $othersItems = collect(MenuHelper::getOthersItems());

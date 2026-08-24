@@ -48,6 +48,7 @@ class AdminPagesRenderTest extends TestCase
             '/admin/boss-workspace',
             '/admin/global-timeline',
             '/admin/message-simulator',
+            '/admin/laravel-logs',
             '/admin/operations-dashboard',
             '/admin/prompt-playground',
         ];
