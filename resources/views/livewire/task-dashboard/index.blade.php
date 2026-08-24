@@ -629,54 +629,58 @@
                                     @endif
 
                                     {{-- Card Footer: Assignee + Due Date + Move Arrow --}}
-                                    <div class="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800 text-[10px]">
-                                        <div class="flex items-center gap-2">
-                                            <div class="flex items-center -space-x-1.5">
-                                                @forelse($task->assignees->take(3) as $ass)
-                                                    <x-ui.person-avatar :person="$ass" size="sm" ring />
-                                                @empty
-                                                    <span class="w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 flex items-center justify-center text-[9px]">?</span>
-                                                @endforelse
-                                                @if($task->assignees->count() > 3)
-                                                    <span class="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center justify-center text-[8px] font-mono font-bold ring-2 ring-white dark:ring-gray-900">
-                                                        +{{ $task->assignees->count() - 3 }}
-                                                    </span>
+                                    <div class="pt-2 border-t border-gray-100 dark:border-gray-800 text-[10px] space-y-2">
+                                        <div class="flex items-center justify-between gap-2 min-w-0">
+                                            <div class="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+                                                <div class="flex items-center -space-x-1.5 shrink-0">
+                                                    @forelse($task->assignees->take(3) as $ass)
+                                                        <x-ui.person-avatar :person="$ass" size="sm" ring />
+                                                    @empty
+                                                        <span class="w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 flex items-center justify-center text-[9px]">?</span>
+                                                    @endforelse
+                                                    @if($task->assignees->count() > 3)
+                                                        <span class="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center justify-center text-[8px] font-mono font-bold ring-2 ring-white dark:ring-gray-900">
+                                                            +{{ $task->assignees->count() - 3 }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                                <div class="min-w-0 truncate">
+                                                    <x-tasks.due-date-popover
+                                                        :value="$task->due_date?->format('Y-m-d')"
+                                                        :urgency="$dueUrgency"
+                                                        wire-action="updateTaskDueDate"
+                                                        :wire-params="[$task->id]"
+                                                        align="left"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {{-- Quick Move Arrows --}}
+                                            <div class="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                @php
+                                                    $currentIdx = collect($board['columns'])->search(fn($c) => $c['state_id'] === $col['state_id']);
+                                                    $nextCol = $board['columns'][$currentIdx + 1] ?? null;
+                                                    $prevCol = $board['columns'][$currentIdx - 1] ?? null;
+                                                @endphp
+                                                @if($prevCol)
+                                                    <button wire:click="moveTaskToState({{ $task->id }}, {{ $prevCol['state_id'] }})" class="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-700 transition" title="Move back to {{ $prevCol['state_name'] }}" aria-label="Move back to {{ $prevCol['state_name'] }}">
+                                                        <x-heroicon-m-chevron-left class="w-3.5 h-3.5"/>
+                                                    </button>
+                                                @endif
+                                                @if($nextCol && ($isManager || ! $task->mustPassReview() || ! in_array($nextCol['state_type'] ?? '', ['completed', 'closed'], true)))
+                                                    <button wire:click="moveTaskToState({{ $task->id }}, {{ $nextCol['state_id'] }})" class="p-0.5 rounded hover:bg-brand-100 dark:hover:bg-brand-900/30 text-gray-400 hover:text-brand-600 transition" title="Move forward to {{ $nextCol['state_name'] }}" aria-label="Move forward to {{ $nextCol['state_name'] }}">
+                                                        <x-heroicon-m-chevron-right class="w-3.5 h-3.5"/>
+                                                    </button>
                                                 @endif
                                             </div>
-                                            <x-tasks.due-date-popover
-                                                :value="$task->due_date?->format('Y-m-d')"
-                                                :urgency="$dueUrgency"
-                                                wire-action="updateTaskDueDate"
-                                                :wire-params="[$task->id]"
-                                                align="left"
-                                            />
                                         </div>
 
                                         @if($isManager && $task->statusKey() === 'code_review')
-                                            <div class="flex items-center gap-1" @mousedown.stop @click.stop draggable="false">
-                                                <button type="button" wire:click.stop="approveTask({{ $task->id }})" class="px-1.5 py-0.5 rounded bg-emerald-600 text-[9px] font-bold text-white hover:bg-emerald-700">Approve &amp; done</button>
-                                                <button type="button" @click.stop="$wire.showReviewModal = true; $wire.openReviewModal({{ $task->id }})" class="px-1.5 py-0.5 rounded bg-red-600 text-[9px] font-bold text-white hover:bg-red-700">Changes</button>
+                                            <div class="flex items-center gap-1.5 w-full" @mousedown.stop @click.stop draggable="false">
+                                                <button type="button" wire:click.stop="approveTask({{ $task->id }})" class="flex-1 px-2 py-1 rounded-md bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700 text-center">Approve &amp; done</button>
+                                                <button type="button" @click.stop="$wire.showReviewModal = true; $wire.openReviewModal({{ $task->id }})" class="flex-1 px-2 py-1 rounded-md bg-red-600 text-[10px] font-bold text-white hover:bg-red-700 text-center">Changes</button>
                                             </div>
                                         @endif
-
-                                        {{-- Quick Move Arrows --}}
-                                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            @php
-                                                $currentIdx = collect($board['columns'])->search(fn($c) => $c['state_id'] === $col['state_id']);
-                                                $nextCol = $board['columns'][$currentIdx + 1] ?? null;
-                                                $prevCol = $board['columns'][$currentIdx - 1] ?? null;
-                                            @endphp
-                                            @if($prevCol)
-                                                <button wire:click="moveTaskToState({{ $task->id }}, {{ $prevCol['state_id'] }})" class="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-700 transition" title="Move back to {{ $prevCol['state_name'] }}" aria-label="Move back to {{ $prevCol['state_name'] }}">
-                                                    <x-heroicon-m-chevron-left class="w-3.5 h-3.5"/>
-                                                </button>
-                                            @endif
-                                            @if($nextCol && ($isManager || ! $task->mustPassReview() || ! in_array($nextCol['state_type'] ?? '', ['completed', 'closed'], true)))
-                                                <button wire:click="moveTaskToState({{ $task->id }}, {{ $nextCol['state_id'] }})" class="p-0.5 rounded hover:bg-brand-100 dark:hover:bg-brand-900/30 text-gray-400 hover:text-brand-600 transition" title="Move forward to {{ $nextCol['state_name'] }}" aria-label="Move forward to {{ $nextCol['state_name'] }}">
-                                                    <x-heroicon-m-chevron-right class="w-3.5 h-3.5"/>
-                                                </button>
-                                            @endif
-                                        </div>
                                     </div>
                                 </div>
                             @empty
