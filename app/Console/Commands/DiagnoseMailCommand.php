@@ -29,8 +29,14 @@ class DiagnoseMailCommand extends Command
                 ['mail.from', (string) config('mail.from.address')],
                 ['queue.default', (string) config('queue.default')],
                 ['openssl.cafile', (string) (ini_get('openssl.cafile') ?: '(empty — TLS verify may fail)')],
+                ['curl.cainfo', (string) (ini_get('curl.cainfo') ?: '(empty)')],
             ]
         );
+
+        if (! ini_get('openssl.cafile') && ! ini_get('curl.cainfo')) {
+            $this->error('No CA bundle configured — SMTP STARTTLS will fail with certificate verify failed.');
+            $this->comment('Fix: sudo apt install ca-certificates && set MAIL_CAFILE=/etc/ssl/certs/ca-certificates.crt');
+        }
 
         if (config('mail.default') !== 'smtp') {
             $this->error('MAIL_MAILER is not smtp. Emails will not leave the server (log/array).');

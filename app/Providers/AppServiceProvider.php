@@ -11,8 +11,10 @@ use App\Policies\EmployeePolicy;
 use App\Policies\IssuePolicy;
 use App\Policies\ProjectPolicy;
 use App\Policies\TaskPolicy;
+use App\Services\AI\Providers\OpenAIProvider;
 use App\Services\Mock\MockAIProvider;
 use App\Services\Mock\MockSyncProvider;
+use App\Support\EnsureTlsCaBundle;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Http\Request;
@@ -39,11 +41,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Must run before any SMTP / HTTPS client use (mail jobs, HTTP).
+        EnsureTlsCaBundle::apply();
+
         $this->app->bind(AIProviderInterface::class, function () {
             if ($this->app->environment('local', 'testing')) {
-                return new MockAIProvider();
+                return new MockAIProvider;
             }
-            return new \App\Services\AI\Providers\OpenAIProvider();
+
+            return new OpenAIProvider;
         });
 
         $this->app->bind(

@@ -117,6 +117,8 @@ Checklist:
 - Queued mail (`Mail::queue`, `SendNotificationEmailJob`) only sends when Supervisor workers are `RUNNING` and `QUEUE_CONNECTION=redis`.
 - After changing `.env` mail vars: `php artisan config:cache` then `php artisan queue:restart`.
 - CLI PHP must trust CAs (`openssl.cafile` set, or `ca-certificates` installed). Missing CA → `certificate verify failed` on SMTP.
+- App auto-detects common CA paths via `EnsureTlsCaBundle`; override with `MAIL_CAFILE` if needed.
+- On Ubuntu if STARTTLS still fails: `sudo apt install -y ca-certificates` then set `MAIL_CAFILE=/etc/ssl/certs/ca-certificates.crt` and `php artisan config:cache`.
 
 Smoke test (on the VM):
 
