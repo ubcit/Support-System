@@ -3,7 +3,6 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -11,7 +10,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Collection;
 use Modules\Employees\Models\Employee;
 
-class TaskDueSoonMail extends Mailable implements ShouldQueue
+class TaskDueSoonMail extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -23,7 +22,7 @@ class TaskDueSoonMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: count($this->tasks) . ' ' . str('Task')->plural(count($this->tasks)) . ' Due Soon',
+            subject: count($this->tasks).' '.str('Task')->plural(count($this->tasks)).' Due Soon',
         );
     }
 

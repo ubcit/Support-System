@@ -327,6 +327,24 @@ class Index extends Component
         session()->flash('success', 'Assignee updated.');
     }
 
+    public function toggleTaskAssignee(int $taskId, int $employeeId): void
+    {
+        $task = Task::find($taskId);
+        if (! $task) {
+            return;
+        }
+
+        $currentIds = $task->assignees()->pluck('employees.id')->map(fn ($id) => (int) $id)->all();
+        if (in_array($employeeId, $currentIds, true)) {
+            $nextIds = array_values(array_diff($currentIds, [$employeeId]));
+        } else {
+            $nextIds = array_values(array_unique([...$currentIds, $employeeId]));
+        }
+
+        app(NativeTaskService::class)->updateAssignees($task, $nextIds, $this->actor());
+        session()->flash('success', 'Assignees updated.');
+    }
+
     public function updateTaskProject(int $taskId, ?int $projectId): void
     {
         $task = Task::find($taskId);

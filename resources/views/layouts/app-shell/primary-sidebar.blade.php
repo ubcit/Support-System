@@ -24,7 +24,7 @@
                     type="button"
                     @click="forceMore = !forceMore"
                     @if ($hasPanel)
-                        @mouseenter="$store.shell.secondaryCollapsed && $store.shell.setHoveredPanel('{{ $destination['key'] }}')"
+                        @mouseenter="$store.shell.setHoveredPanel('{{ $destination['key'] }}')"
                         @mouseleave="$store.shell.clearHoveredPanel()"
                     @endif
                     title="{{ $destination['label'] }}"
@@ -43,7 +43,7 @@
                     wire:navigate
                     @click="forceMore = false"
                     @if ($hasPanel)
-                        @mouseenter="$store.shell.secondaryCollapsed && $store.shell.setHoveredPanel('{{ $destination['key'] }}')"
+                        @mouseenter="$store.shell.setHoveredPanel('{{ $destination['key'] }}')"
                         @mouseleave="$store.shell.clearHoveredPanel()"
                     @endif
                     title="{{ $destination['label'] }}"

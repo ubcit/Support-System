@@ -166,6 +166,8 @@ class NativeTaskService
             }
 
             $oldStateId = $task->current_state_id;
+            $fromState = $task->currentState;
+            $wasCompleted = $task->completed_at !== null;
             $payload = ['current_state_id' => $stateId];
             if ($state) {
                 $payload['completed_at'] = $completedAt;
@@ -187,6 +189,13 @@ class NativeTaskService
                     'duration_seconds' => $durationSeconds,
                 ],
             ]);
+
+            $fresh = $task->fresh(['currentState', 'assignees']);
+            $this->notifyIfEnteredReview($fresh, $employee, $fromState, $state);
+
+            if (! $wasCompleted && $fresh?->completed_at !== null) {
+                SendNotificationEmailJob::dispatch('task_completed', $fresh->id);
+            }
         }
 
         return $updatedCount;
@@ -332,6 +341,7 @@ class NativeTaskService
 
         $needsApproval = $this->needsReviewApproval($task);
         $fromState = $task->currentState;
+        $wasCompleted = $task->completed_at !== null;
         $changes = [];
         $durationSecondsForStatusChange = null;
 
@@ -440,6 +450,10 @@ class NativeTaskService
 
         $fresh = $task->fresh(['assignees', 'checklists.items', 'project', 'currentState']);
         $this->notifyIfEnteredReview($fresh, $actor, $fromState, $fresh?->currentState);
+
+        if (! $wasCompleted && $fresh?->completed_at !== null) {
+            SendNotificationEmailJob::dispatch('task_completed', $fresh->id);
+        }
 
         return $fresh;
     }

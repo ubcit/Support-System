@@ -3,7 +3,6 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -11,7 +10,7 @@ use Illuminate\Queue\SerializesModels;
 use Modules\Employees\Models\Employee;
 use Modules\Tasks\Models\Task;
 
-class TaskCompletedMail extends Mailable implements ShouldQueue
+class TaskCompletedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -23,7 +22,7 @@ class TaskCompletedMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Task Completed: ' . $this->task->title,
+            subject: 'Task Completed: '.$this->task->title,
         );
     }
 

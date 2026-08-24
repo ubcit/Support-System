@@ -36,6 +36,10 @@ class DiagnoseMailCommand extends Command
             $this->error('MAIL_MAILER is not smtp. Emails will not leave the server (log/array).');
         }
 
+        if (config('queue.default') !== 'sync') {
+            $this->comment('Task/issue emails use SendNotificationEmailJob — workers must be running.');
+        }
+
         $this->newLine();
         $this->info('Queue health');
 
