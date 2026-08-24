@@ -1,16 +1,23 @@
-{{-- Secondary sidebar: context panel next to the primary rail. lg and up only. --}}
+{{-- Secondary sidebar: context panel next to the primary rail. lg and up only.
+     Content follows hoveredPanelKey when set, otherwise forceMore / active route. --}}
 <aside
     class="hidden lg:flex fixed inset-y-0 left-16 z-30 flex-col border-r border-gray-200 bg-shell-secondary transition-all duration-300 ease-in-out dark:border-gray-800"
     :class="$store.shell.secondaryCollapsed ? 'w-0 overflow-hidden border-0 pointer-events-none' : 'w-[272px]'"
+    @mouseenter="if ($store.shell.hoveredPanelKey) $store.shell.setHoveredPanel($store.shell.hoveredPanelKey)"
+    @mouseleave="$store.shell.clearHoveredPanel()"
 >
     {{-- Panel header: section title + collapse toggle --}}
     <div class="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 px-3 dark:border-gray-800">
-        <span x-show="!$store.shell.secondaryCollapsed && !forceMore" x-cloak class="truncate text-sm font-bold text-gray-800 dark:text-white/90">
-            {{ $activeDestination['label'] ?? 'Menu' }}
-        </span>
-        <span x-show="!$store.shell.secondaryCollapsed && forceMore" x-cloak class="truncate text-sm font-bold text-gray-800 dark:text-white/90">
-            More
-        </span>
+        @foreach ($destinations as $destination)
+            @continue(empty($destination['panel']))
+            <span
+                x-show="!$store.shell.secondaryCollapsed && ($store.shell.hoveredPanelKey ?? (forceMore ? 'more' : '{{ $activeKey }}')) === '{{ $destination['key'] }}'"
+                x-cloak
+                class="truncate text-sm font-bold text-gray-800 dark:text-white/90"
+            >
+                {{ $destination['label'] }}
+            </span>
+        @endforeach
         <button
             type="button"
             @click="$store.shell.toggleSecondary()"
@@ -25,39 +32,30 @@
 
     {{-- Panel body (each panel manages its own internal scroll region / footer) --}}
     <div class="flex-1 overflow-hidden">
-        {{-- Section matching the current route --}}
-        <div x-show="!forceMore" x-cloak class="h-full">
-            @if (($activeDestination['panel'] ?? null) === 'projects')
-                @include('layouts.app-shell.secondary-sidebar.projects-panel', ['panelKey' => 'projects-secondary'])
-            @elseif (($activeDestination['panel'] ?? null) === 'generic')
-                @include('layouts.app-shell.secondary-sidebar.generic-panel')
-            @elseif (($activeDestination['panel'] ?? null) === 'more')
-                @include('layouts.app-shell.secondary-sidebar.more-panel')
-            @elseif (($activeDestination['panel'] ?? null) === 'home')
-                @include('layouts.app-shell.secondary-sidebar.home-panel')
-            @elseif (($activeDestination['panel'] ?? null) === 'tasks')
-                @include('layouts.app-shell.secondary-sidebar.tasks-panel', ['panelKey' => 'tasks-secondary'])
-            @elseif (($activeDestination['panel'] ?? null) === 'inbox')
-                @include('layouts.app-shell.secondary-sidebar.inbox-panel', ['panelKey' => 'inbox-secondary'])
-            @elseif (($activeDestination['panel'] ?? null) === 'profile')
-                @include('layouts.app-shell.secondary-sidebar.profile-panel')
-            @else
-                <div class="p-4">
-                    <p class="text-xs text-gray-400">No sub-navigation for this section.</p>
-                    @if ($activeDestination['item'] ?? null)
-                        <a href="{{ $activeDestination['item']['path'] }}" wire:navigate class="mt-2 inline-flex text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">
-                            Open {{ $activeDestination['label'] }}
-                        </a>
-                    @endif
-                </div>
-            @endif
-        </div>
-
-        {{-- Forced-open "More" panel (click on the More rail icon, no navigation) --}}
-        @if ($destinations->firstWhere('key', 'more'))
-            <div x-show="forceMore" x-cloak class="h-full">
-                @include('layouts.app-shell.secondary-sidebar.more-panel')
+        @foreach ($destinations as $destination)
+            @continue(empty($destination['panel']))
+            @php $flyoutDestination = $destination; @endphp
+            <div
+                x-show="($store.shell.hoveredPanelKey ?? (forceMore ? 'more' : '{{ $activeKey }}')) === '{{ $destination['key'] }}'"
+                x-cloak
+                class="h-full"
+            >
+                @if ($destination['panel'] === 'projects')
+                    @include('layouts.app-shell.secondary-sidebar.projects-panel', ['panelKey' => 'projects-secondary'])
+                @elseif ($destination['panel'] === 'generic')
+                    @include('layouts.app-shell.secondary-sidebar.generic-panel')
+                @elseif ($destination['panel'] === 'more')
+                    @include('layouts.app-shell.secondary-sidebar.more-panel')
+                @elseif ($destination['panel'] === 'home')
+                    @include('layouts.app-shell.secondary-sidebar.home-panel')
+                @elseif ($destination['panel'] === 'tasks')
+                    @include('layouts.app-shell.secondary-sidebar.tasks-panel', ['panelKey' => 'tasks-secondary'])
+                @elseif ($destination['panel'] === 'inbox')
+                    @include('layouts.app-shell.secondary-sidebar.inbox-panel', ['panelKey' => 'inbox-secondary'])
+                @elseif ($destination['panel'] === 'profile')
+                    @include('layouts.app-shell.secondary-sidebar.profile-panel')
+                @endif
             </div>
-        @endif
+        @endforeach
     </div>
 </aside>

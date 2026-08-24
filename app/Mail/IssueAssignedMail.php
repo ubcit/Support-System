@@ -3,7 +3,6 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -11,7 +10,7 @@ use Illuminate\Queue\SerializesModels;
 use Modules\Employees\Models\Employee;
 use Modules\Issues\Models\Issue;
 
-class IssueAssignedMail extends Mailable implements ShouldQueue
+class IssueAssignedMail extends Mailable
 {
     use Queueable, SerializesModels;
 

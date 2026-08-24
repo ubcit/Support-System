@@ -305,15 +305,20 @@
                                                     </span>
                                                 @endif
                                             </button>
-                                            <div x-show="open" @click.outside="open = false" x-cloak class="absolute right-0 mt-1 z-50 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1 text-xs max-h-48 overflow-y-auto">
-                                                <button wire:click="updateTaskAssignee({{ $task->id }}, null)" @click="open = false" class="w-full px-3 py-1.5 text-left font-medium text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                            <div x-show="open" @click.outside="open = false" x-cloak class="absolute right-0 mt-1 z-50 w-52 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-1 text-xs max-h-48 overflow-y-auto space-y-0.5">
+                                                <button type="button" wire:click="updateTaskAssignee({{ $task->id }}, null)" @click="open = false" class="w-full px-2 py-1.5 text-left font-medium text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                                                     Unassigned
                                                 </button>
                                                 @foreach($employeeRoster as $emp)
-                                                    <button wire:click="updateTaskAssignee({{ $task->id }}, {{ $emp->id }})" @click="open = false" class="w-full px-3 py-1.5 text-left font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 truncate flex items-center gap-2">
+                                                    @php $isAssigned = $task->assignees->contains('id', $emp->id); @endphp
+                                                    <label class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-700 dark:text-gray-200">
+                                                        <input type="checkbox"
+                                                               wire:click="toggleTaskAssignee({{ $task->id }}, {{ $emp->id }})"
+                                                               {{ $isAssigned ? 'checked' : '' }}
+                                                               class="w-3.5 h-3.5 text-brand-600 rounded border-gray-300 dark:border-gray-600 focus:ring-brand-500 shrink-0">
                                                         <x-ui.person-avatar :person="$emp" size="xs" />
-                                                        {{ $emp->name }}
-                                                    </button>
+                                                        <span class="font-medium truncate">{{ $emp->name }}</span>
+                                                    </label>
                                                 @endforeach
                                             </div>
                                         </div>

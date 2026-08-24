@@ -2,8 +2,8 @@
 
 namespace Modules\Notifications\Services;
 
-use App\Mail\DailyDigestMail;
 use App\Mail\CommentMentionMail;
+use App\Mail\DailyDigestMail;
 use App\Mail\IssueAssignedMail;
 use App\Mail\NewIssueMail;
 use App\Mail\OverdueTaskMail;
@@ -16,6 +16,7 @@ use App\Mail\TaskAssignedMail;
 use App\Mail\TaskCompletedMail;
 use App\Mail\TaskCreatedMail;
 use App\Mail\TaskDueSoonMail;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Modules\Communication\Models\ConversationSession;
@@ -23,7 +24,6 @@ use Modules\Employees\Models\Employee;
 use Modules\Issues\Models\Issue;
 use Modules\Notifications\Models\NotificationLog;
 use Modules\Projects\Models\Project;
-use Modules\Tasks\Enums\TaskStatus;
 use Modules\Tasks\Models\Task;
 use Modules\Tasks\Models\TaskComment;
 
@@ -49,7 +49,7 @@ class EmailNotificationService
                 $employee,
                 new OverdueTaskMail($employee, $overdueTasks),
                 'overdue_tasks',
-                $overdueTasks->count() . ' overdue tasks',
+                $overdueTasks->count().' overdue tasks',
             );
             $sent++;
         }
@@ -84,7 +84,7 @@ class EmailNotificationService
                 $employee,
                 new TaskDueSoonMail($employee, $dueSoonTasks),
                 'due_soon',
-                $dueSoonTasks->count() . ' tasks due soon',
+                $dueSoonTasks->count().' tasks due soon',
             );
             $sent++;
         }
@@ -117,7 +117,7 @@ class EmailNotificationService
                 $employee,
                 new ProjectDeadlineMail($employee, $projects),
                 'project_deadline',
-                $projects->count() . ' project deadlines approaching',
+                $projects->count().' project deadlines approaching',
             );
             $sent++;
         }
@@ -200,7 +200,7 @@ class EmailNotificationService
             $employee,
             new TaskAssignedMail($employee, $task),
             'task_assigned',
-            'Task assigned: ' . $task->title,
+            'Task assigned: '.$task->title,
         );
     }
 
@@ -410,7 +410,7 @@ class EmailNotificationService
                 $issue->assignee,
                 new NewIssueMail($issue->assignee, $issue),
                 'new_issue',
-                'New issue: ' . $issue->title,
+                'New issue: '.$issue->title,
             );
             $notified->push($issue->assignee->id);
         }
@@ -428,13 +428,13 @@ class EmailNotificationService
                     $employee,
                     new NewIssueMail($employee, $issue),
                     'new_issue',
-                    'New issue: ' . $issue->title,
+                    'New issue: '.$issue->title,
                 );
             }
         }
     }
 
-    protected function getOverdueTasksForEmployee(Employee $employee): \Illuminate\Support\Collection
+    protected function getOverdueTasksForEmployee(Employee $employee): Collection
     {
         return Task::query()
             ->whereHas('assignees', fn ($q) => $q->where('employees.id', $employee->id))
@@ -447,7 +447,7 @@ class EmailNotificationService
             ->get();
     }
 
-    protected function getNotifiableEmployees(): \Illuminate\Support\Collection
+    protected function getNotifiableEmployees(): Collection
     {
         return Employee::query()
             ->whereNotNull('email')
@@ -483,7 +483,11 @@ class EmailNotificationService
     protected function sendAndLog(Employee $employee, $mailable, string $type, string $subject): void
     {
         try {
-            Mail::to($employee->email)->send($mailable);
+            // sendNow: notification mailables must not re-queue via ShouldQueue.
+            // SendNotificationEmailJob (or the scheduler) already provides the queue hop;
+            // Mail::send() on a ShouldQueue mailable only enqueues SendQueuedMailable and
+            // would log "sent" before SMTP actually runs.
+            Mail::to($employee->email)->sendNow($mailable);
 
             NotificationLog::create([
                 'channel' => 'email',
