@@ -5,6 +5,7 @@ namespace App\Jobs;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Foundation\Bus\PendingDispatch;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Modules\Communication\Models\ConversationSession;
@@ -29,6 +30,19 @@ class SendNotificationEmailJob implements ShouldQueue
         public ?int $employeeId = null,
         public ?int $actorId = null,
     ) {}
+
+    /**
+     * Run after the HTTP response via the sync connection so SMTP does not
+     * depend on Supervisor / queue:work for notification emails.
+     */
+    public static function dispatchNotify(
+        string $type,
+        int $modelId,
+        ?int $employeeId = null,
+        ?int $actorId = null,
+    ): PendingDispatch {
+        return static::dispatch($type, $modelId, $employeeId, $actorId)->afterResponse();
+    }
 
     public function handle(EmailNotificationService $service): void
     {

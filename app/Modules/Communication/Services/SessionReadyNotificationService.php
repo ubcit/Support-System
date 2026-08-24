@@ -232,7 +232,7 @@ class SessionReadyNotificationService
         }
 
         // Queue via job (conversation_needs_human) so SMTP uses workers like other mail.
-        SendNotificationEmailJob::dispatch('conversation_needs_human', $session->id, $employee->id);
+        SendNotificationEmailJob::dispatchNotify('conversation_needs_human', $session->id, $employee->id);
     }
 
     protected function sendStaffWhatsApp(Employee $employee, string $body, ConversationSession $session): void

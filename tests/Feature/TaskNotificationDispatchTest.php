@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Jobs\SendNotificationEmailJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Bus;
 use Modules\Employees\Models\Employee;
 use Modules\MultiTenancy\Models\Workspace;
 use Modules\Notifications\Models\Notification;
@@ -20,7 +20,7 @@ class TaskNotificationDispatchTest extends TestCase
 
     public function test_create_task_notifies_assignee_and_project_members(): void
     {
-        Queue::fake();
+        Bus::fake([SendNotificationEmailJob::class]);
 
         $workspace = Workspace::create(['name' => 'Space', 'slug' => 'space']);
 
@@ -94,13 +94,13 @@ class TaskNotificationDispatchTest extends TestCase
                 ->exists()
         );
 
-        Queue::assertPushed(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $assignee) {
+        Bus::assertDispatched(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $assignee) {
             return $job->type === 'task_assigned'
                 && $job->modelId === $task->id
                 && $job->employeeId === $assignee->id;
         });
 
-        Queue::assertPushed(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $creator) {
+        Bus::assertDispatched(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $creator) {
             return $job->type === 'task_created'
                 && $job->modelId === $task->id
                 && $job->employeeId === $creator->id;
@@ -109,7 +109,7 @@ class TaskNotificationDispatchTest extends TestCase
 
     public function test_update_assignees_notifies_newly_added_only(): void
     {
-        Queue::fake();
+        Bus::fake([SendNotificationEmailJob::class]);
 
         $workspace = Workspace::create(['name' => 'Space', 'slug' => 'space-2']);
         $actor = Employee::create([
@@ -151,7 +151,7 @@ class TaskNotificationDispatchTest extends TestCase
             'assignee_ids' => [$first->id],
         ], $actor);
 
-        Queue::fake();
+        Bus::fake([SendNotificationEmailJob::class]);
 
         $service->updateAssignees($task, [$first->id, $second->id], $actor);
 
@@ -163,13 +163,13 @@ class TaskNotificationDispatchTest extends TestCase
                 ->exists()
         );
 
-        Queue::assertPushed(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $second) {
+        Bus::assertDispatched(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $second) {
             return $job->type === 'task_assigned'
                 && $job->modelId === $task->id
                 && $job->employeeId === $second->id;
         });
 
-        Queue::assertNotPushed(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($first) {
+        Bus::assertNotDispatched(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($first) {
             return $job->type === 'task_assigned' && $job->employeeId === $first->id;
         });
     }

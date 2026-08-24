@@ -194,7 +194,7 @@ class NativeTaskService
             $this->notifyIfEnteredReview($fresh, $employee, $fromState, $state);
 
             if (! $wasCompleted && $fresh?->completed_at !== null) {
-                SendNotificationEmailJob::dispatch('task_completed', $fresh->id);
+                SendNotificationEmailJob::dispatchNotify('task_completed', $fresh->id);
             }
         }
 
@@ -452,7 +452,7 @@ class NativeTaskService
         $this->notifyIfEnteredReview($fresh, $actor, $fromState, $fresh?->currentState);
 
         if (! $wasCompleted && $fresh?->completed_at !== null) {
-            SendNotificationEmailJob::dispatch('task_completed', $fresh->id);
+            SendNotificationEmailJob::dispatchNotify('task_completed', $fresh->id);
         }
 
         return $fresh;
@@ -557,7 +557,7 @@ class NativeTaskService
         ]);
 
         if (! $wasCompleted && $task->completed_at !== null) {
-            SendNotificationEmailJob::dispatch('task_completed', $task->id);
+            SendNotificationEmailJob::dispatchNotify('task_completed', $task->id);
         }
 
         $fresh = $task->fresh(['currentState']);
@@ -632,7 +632,7 @@ class NativeTaskService
                 ],
             );
 
-            SendNotificationEmailJob::dispatch('comment_mention', $comment->id, $employeeId);
+            SendNotificationEmailJob::dispatchNotify('comment_mention', $comment->id, $employeeId);
         }
 
         return $comment;
@@ -826,7 +826,7 @@ class NativeTaskService
                 metadata: ['task_id' => $task->id],
             );
 
-            SendNotificationEmailJob::dispatch($type, $task->id, $assignee->id);
+            SendNotificationEmailJob::dispatchNotify($type, $task->id, $assignee->id);
         }
     }
 
@@ -869,7 +869,7 @@ class NativeTaskService
                 metadata: ['task_id' => $task->id],
             );
 
-            SendNotificationEmailJob::dispatch('review_requested', $task->id, $recipient->id, $actor?->id);
+            SendNotificationEmailJob::dispatchNotify('review_requested', $task->id, $recipient->id, $actor?->id);
         }
     }
 
@@ -944,7 +944,7 @@ class NativeTaskService
                 metadata: ['task_id' => $task->id],
             );
 
-            SendNotificationEmailJob::dispatch('task_assigned', $task->id, $assignee->id);
+            SendNotificationEmailJob::dispatchNotify('task_assigned', $task->id, $assignee->id);
         }
 
         if (! $task->project_id) {
@@ -976,7 +976,7 @@ class NativeTaskService
         }
 
         // One job fans out email to all project members (service excludes creator).
-        SendNotificationEmailJob::dispatch('task_created', $task->id, $creator?->id);
+        SendNotificationEmailJob::dispatchNotify('task_created', $task->id, $creator?->id);
     }
 
     /**
@@ -1011,7 +1011,7 @@ class NativeTaskService
                 metadata: ['task_id' => $task->id],
             );
 
-            SendNotificationEmailJob::dispatch('task_assigned', $task->id, $employee->id);
+            SendNotificationEmailJob::dispatchNotify('task_assigned', $task->id, $employee->id);
         }
     }
 }
