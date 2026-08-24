@@ -76,6 +76,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/prompt-playground', App\Livewire\PromptPlayground\Index::class)->name('prompt-playground');
     Route::get('/message-simulator', App\Livewire\MessageSimulator\Index::class)->name('message-simulator');
     Route::get('/laravel-logs', App\Livewire\LaravelLogs\Index::class)->name('laravel-logs');
+    Route::get('/worker-logs', App\Livewire\WorkerLogs\Index::class)->name('worker-logs');
     Route::get('/benchmark-dashboard', App\Livewire\BenchmarkDashboard\Index::class)->name('benchmark-dashboard');
     Route::get('/workspace-onboarding', App\Livewire\WorkspaceOnboarding\Index::class)->name('workspace-onboarding');
     Route::get('/workspace-settings', App\Livewire\WorkspaceSettings\Index::class)->name('workspace-settings');

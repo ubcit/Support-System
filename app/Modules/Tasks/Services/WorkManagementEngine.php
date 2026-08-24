@@ -2,13 +2,16 @@
 
 namespace Modules\Tasks\Services;
 
+use App\Jobs\SendNotificationEmailJob;
 use Illuminate\Support\Facades\Log;
 use Modules\AI\DTOs\AIResult;
+use Modules\Communication\Services\WorkCommunicationService;
 use Modules\Employees\Models\Employee;
 use Modules\Issues\Models\Issue;
-use App\Jobs\SendNotificationEmailJob;
+use Modules\MultiTenancy\Models\Workspace;
 use Modules\Tasks\Events\TaskCreated;
 use Modules\Tasks\Models\Task;
+use Modules\Workflows\Services\WorkflowManager;
 
 class WorkManagementEngine
 {
@@ -29,7 +32,7 @@ class WorkManagementEngine
             $type = 'investigation';
         }
 
-        $workflowManager = app(\Modules\Workflows\Services\WorkflowManager::class);
+        $workflowManager = app(WorkflowManager::class);
         $initialState = $workflowManager->getDefaultState('task');
 
         // Create the primary Work Item
@@ -47,7 +50,7 @@ class WorkManagementEngine
             'metadata' => [
                 'ai_tags' => $aiResult->tags,
                 'source' => 'ai_generated',
-            ]
+            ],
         ]);
 
         $this->logTimeline($task, 'created', "Work Item created by Work Management Engine. Type: {$type}");
@@ -56,27 +59,27 @@ class WorkManagementEngine
         $employee = $this->matchEmployee($aiResult);
 
         // Check global setting to bypass boss/pending acceptance
-        $workspace = \Modules\MultiTenancy\Models\Workspace::where('is_active', true)->first();
+        $workspace = Workspace::where('is_active', true)->first();
         $autoAssign = $workspace ? $workspace->getSetting('auto_assign_tasks', true) : true;
 
         if ($employee) {
             $assignmentStatus = $autoAssign ? 'accepted' : 'pending';
-            
+
             $task->assignments()->create([
                 'employee_id' => $employee->id,
                 'status' => $assignmentStatus,
                 'role' => 'assignee',
             ]);
 
-            $logMsg = $autoAssign 
+            $logMsg = $autoAssign
                 ? "Auto-assigned to {$employee->name} directly (Boss review bypassed)"
                 : "Auto-assigned to {$employee->name} (Pending Acceptance)";
-                
+
             $this->logTimeline($task, 'assigned', $logMsg, $employee->id);
 
-            SendNotificationEmailJob::dispatch('task_assigned', $task->id, $employee->id);
+            SendNotificationEmailJob::dispatchNotify('task_assigned', $task->id, $employee->id);
         } else {
-            $this->logTimeline($task, 'needs_assignment', "Added to unassigned queue.");
+            $this->logTimeline($task, 'needs_assignment', 'Added to unassigned queue.');
         }
 
         // Emit Domain Event for Sync Listeners
@@ -88,12 +91,13 @@ class WorkManagementEngine
         if ($aiResult->employeeConfidence >= self::CONFIDENCE_AUTO_ASSIGN && $aiResult->employeeMatch) {
             return Employee::where('name', 'LIKE', "%{$aiResult->employeeMatch}%")->first();
         }
+
         return null;
     }
 
     protected function logTimeline(Task $task, string $action, string $description, ?int $employeeId = null): void
     {
-        $commsService = app(\Modules\Communication\Services\WorkCommunicationService::class);
+        $commsService = app(WorkCommunicationService::class);
         $commsService->logSystemEvent($task, 'system_event', $description, [
             'action' => $action,
             'employee_id' => $employeeId,

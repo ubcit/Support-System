@@ -2,12 +2,13 @@
 
 namespace Modules\Issues\Services;
 
+use App\Jobs\SendNotificationEmailJob;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Modules\Issues\Enums\IssueStatus;
 use Modules\Issues\Models\Issue;
 use Modules\Issues\Models\IssueTimeline;
-use App\Jobs\SendNotificationEmailJob;
 use Modules\Issues\Repositories\IssueRepositoryInterface;
+use Modules\Notifications\Services\NotificationService;
 
 class IssueService
 {
@@ -42,10 +43,10 @@ class IssueService
 
         $loaded = $issue->load(['project', 'customer', 'reporter', 'assignee']);
 
-        SendNotificationEmailJob::dispatch('new_issue', $issue->id);
+        SendNotificationEmailJob::dispatchNotify('new_issue', $issue->id);
 
         if ($loaded->assignee) {
-            SendNotificationEmailJob::dispatch('issue_assigned', $loaded->id, $loaded->assignee->id);
+            SendNotificationEmailJob::dispatchNotify('issue_assigned', $loaded->id, $loaded->assignee->id);
         }
 
         return $loaded;
@@ -101,10 +102,10 @@ class IssueService
         $loaded = $issue->load('assignee');
 
         if ((int) $oldAssignee !== (int) $employeeId && $loaded->assignee) {
-            SendNotificationEmailJob::dispatch('issue_assigned', $loaded->id, $loaded->assignee->id);
+            SendNotificationEmailJob::dispatchNotify('issue_assigned', $loaded->id, $loaded->assignee->id);
 
             $assignee = $loaded->assignee;
-            app(\Modules\Notifications\Services\NotificationService::class)->send(
+            app(NotificationService::class)->send(
                 title: 'Issue assigned: '.($loaded->title ?: 'Issue'),
                 body: 'You were assigned to this issue.',
                 type: 'issue_assigned',

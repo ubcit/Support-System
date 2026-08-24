@@ -7,8 +7,8 @@ use App\Mail\TaskAssignedMail;
 use App\Mail\TaskCompletedMail;
 use App\Mail\TaskCreatedMail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Queue;
 use Modules\Employees\Models\Employee;
 use Modules\MultiTenancy\Models\Workspace;
 use Modules\Notifications\Services\EmailNotificationService;
@@ -70,13 +70,13 @@ class NotificationEmailDeliveryTest extends TestCase
             'order' => 99,
         ]);
 
-        Queue::fake();
+        Bus::fake([SendNotificationEmailJob::class]);
 
         app(NativeTaskService::class)->updateFields($task, [
             'current_state_id' => $done->id,
         ], $creator);
 
-        Queue::assertPushed(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task) {
+        Bus::assertDispatched(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task) {
             return $job->type === 'task_completed' && $job->modelId === $task->id;
         });
 

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Helpers\TaskNav;
 use App\Livewire\LaravelLogs\Index as LaravelLogsIndex;
+use App\Livewire\WorkerLogs\Index as WorkerLogsIndex;
 use App\Models\User;
 use Database\Seeders\EssentialPlatformSeeder;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -69,6 +70,42 @@ class AdminWorkspaceAndLaravelLogsTest extends TestCase
 
         $this->assertStringNotContainsString(
             'old log line that should be wiped',
+            file_get_contents($path) ?: ''
+        );
+    }
+
+    public function test_boss_can_render_worker_log_viewer(): void
+    {
+        $boss = User::where('email', 'boss@thespace.app')->firstOrFail();
+
+        $this->actingAs($boss)
+            ->get('/admin/worker-logs')
+            ->assertOk()
+            ->assertSee('Worker Log Viewer', false);
+    }
+
+    public function test_employee_cannot_access_worker_log_viewer(): void
+    {
+        $employee = User::where('email', 'ahmed@thespace.app')->firstOrFail();
+
+        $this->actingAs($employee)
+            ->get('/admin/worker-logs')
+            ->assertRedirect();
+    }
+
+    public function test_boss_can_clear_worker_log(): void
+    {
+        $boss = User::where('email', 'boss@thespace.app')->firstOrFail();
+        $path = storage_path('logs/worker.log');
+        file_put_contents($path, "worker processed job that should be wiped\n");
+
+        Livewire::actingAs($boss)
+            ->test(WorkerLogsIndex::class)
+            ->call('clear')
+            ->assertSee('Worker log cleared.');
+
+        $this->assertStringNotContainsString(
+            'worker processed job that should be wiped',
             file_get_contents($path) ?: ''
         );
     }

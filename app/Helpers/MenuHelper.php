@@ -92,6 +92,7 @@ class MenuHelper
                 'subItems' => [
                     ['name' => 'Message Simulator', 'path' => '/admin/message-simulator', 'pro' => false],
                     ['name' => 'Laravel Log Viewer', 'path' => '/admin/laravel-logs', 'pro' => false],
+                    ['name' => 'Worker Log Viewer', 'path' => '/admin/worker-logs', 'pro' => false],
                 ],
             ],
             [

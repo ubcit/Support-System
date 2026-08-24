@@ -2,9 +2,9 @@
 
 namespace Modules\Projects\Services;
 
+use App\Jobs\SendNotificationEmailJob;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
-use App\Jobs\SendNotificationEmailJob;
 use Modules\Customers\Models\Customer;
 use Modules\Employees\Models\Employee;
 use Modules\Notifications\Services\NotificationService;
@@ -197,7 +197,7 @@ class ProjectService
                 metadata: ['project_id' => $project->id],
             );
 
-            SendNotificationEmailJob::dispatch('project_member_added', $project->id, $employee->id);
+            SendNotificationEmailJob::dispatchNotify('project_member_added', $project->id, $employee->id);
         }
     }
 
