@@ -9,7 +9,7 @@
             } }}
         </x-slot:subtitle>
         <x-slot:actions>
-            <x-ui.button wire:click="openStartModal">
+            <x-ui.button @click="$wire.showStartModal = true; $wire.openStartModal()">
                 <x-heroicon-m-plus class="h-4 w-4"/> Start Conversation
             </x-ui.button>
         </x-slot:actions>
@@ -176,7 +176,7 @@
                         <p class="text-[11px] font-semibold text-brand-800 dark:text-brand-300">{{ count($selectedMessageIds) }} selected</p>
                         <div class="flex items-center gap-2">
                             <button type="button" wire:click="clearMessageSelection" class="rounded-lg px-2.5 py-1 text-[11px] font-semibold text-gray-600 hover:bg-white/70 dark:text-gray-300 dark:hover:bg-white/5">Clear</button>
-                            <button type="button" wire:click="openApproveModalFromSelection" class="rounded-lg bg-brand-500 px-3 py-1 text-[11px] font-semibold text-white hover:bg-brand-600">Create task</button>
+                            <button type="button" @click="$wire.showApproveModal = true; $wire.openApproveModalFromSelection()" class="rounded-lg bg-brand-500 px-3 py-1 text-[11px] font-semibold text-white hover:bg-brand-600">Create task</button>
                         </div>
                     </div>
                 @endif
@@ -372,7 +372,7 @@
                         @if ($filter_tab !== 'all' || $searchQuery !== '')
                             <a href="{{ \App\Helpers\InboxNav::url('all') }}" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">View all</a>
                         @endif
-                        <button type="button" wire:click="openStartModal" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+                        <button type="button" @click="$wire.showStartModal = true; $wire.openStartModal()" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
                             <x-heroicon-m-plus class="h-4 w-4"/> Start Conversation
                         </button>
                     </div>
@@ -527,7 +527,7 @@
                                         @if($isManager && $st->statusKey() === 'code_review')
                                             <div class="mt-2 flex items-center gap-1">
                                                 <button type="button" wire:click="approveSessionTask({{ $st->id }})" class="px-2 py-1 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700">Approve &amp; done</button>
-                                                <button type="button" wire:click="openSessionReviewModal({{ $st->id }})" class="px-2 py-1 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">Changes</button>
+                                                <button type="button" @click="$wire.showTaskReviewModal = true; $wire.openSessionReviewModal({{ $st->id }})" class="px-2 py-1 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">Changes</button>
                                             </div>
                                         @endif
                                     </div>
@@ -559,7 +559,7 @@
 
                     <div class="pt-2 flex flex-col gap-2">
                         @if(! $copilot['auto_created'])
-                            <button wire:click="openApproveModal" class="w-full bg-brand-500 hover:bg-brand-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1 shadow-sm">
+                            <button @click="$wire.showApproveModal = true; $wire.openApproveModal()" class="w-full bg-brand-500 hover:bg-brand-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1 shadow-sm">
                                 <x-heroicon-s-check-circle class="w-4 h-4 shrink-0"/> Create task from this session
                             </button>
                         @endif
@@ -631,7 +631,7 @@
                                     @if($isManager && $t->statusKey() === 'code_review')
                                         <div class="mt-2 flex items-center gap-1">
                                             <button type="button" wire:click="approveSessionTask({{ $t->id }})" class="px-2 py-1 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700">Approve &amp; done</button>
-                                            <button type="button" wire:click="openSessionReviewModal({{ $t->id }})" class="px-2 py-1 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">Changes</button>
+                                            <button type="button" @click="$wire.showTaskReviewModal = true; $wire.openSessionReviewModal({{ $t->id }})" class="px-2 py-1 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">Changes</button>
                                         </div>
                                     @endif
                                 </div>
@@ -654,7 +654,7 @@
         </div>
     </div>
 
-    <x-ui.slide-form-modal :show="$showStartModal" title="Start Conversation" description="Open a new thread with an existing customer." close-method="$set('showStartModal', false)" size="sm">
+    <x-ui.slide-form-modal entangle="showStartModal" loading-target="openStartModal" title="Start Conversation" description="Open a new thread with an existing customer." close-method="$set('showStartModal', false)" size="sm">
         <form id="modal-start-conversation" wire:submit="startConversation" class="space-y-4">
             <x-form.select.searchable wire:model="startCustomerId" label="Customer" :options="$customers" placeholder="Select customer" empty-option="Select customer" search-placeholder="Search customers..." />
             @error('startCustomerId') <p class="mt-1 text-sm text-error-500">{{ $message }}</p> @enderror
@@ -675,7 +675,7 @@
     </x-ui.slide-form-modal>
 
         <x-ui.slide-form-modal
-            :show="$showApproveModal"
+            entangle="showApproveModal" loading-target="openApproveModal,openApproveModalFromSelection"
             :title="$creatingFromSelection ? 'Create task from selected messages' : 'Create task from this session'"
             :description="$creatingFromSelection ? 'Build a task from the messages you picked. Use this when Copilot missed or misread a request.' : 'Turn this cooldown burst into a tracked task. The employee still gets the customer messages.'"
             close-method="$set('showApproveModal', false)"
@@ -711,7 +711,7 @@
         </x-slot:footer>
     </x-ui.slide-form-modal>
 
-    <x-ui.slide-form-modal :show="$showTaskReviewModal" title="Request changes" description="The assignee will see this note in My Tasks and by email." close-method="closeSessionReviewModal" size="sm">
+    <x-ui.slide-form-modal entangle="showTaskReviewModal" loading-target="openSessionReviewModal" title="Request changes" description="The assignee will see this note in My Tasks and by email." close-method="closeSessionReviewModal" size="sm">
         <form id="modal-session-review" wire:submit="submitSessionReview" class="space-y-3">
             @if($reviewingTaskTitle !== '')
                 <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $reviewingTaskTitle }}</p>

@@ -92,6 +92,41 @@ REDIS_PORT=6379
 
 Also set mail, AI, and WhatsApp keys (see [`.env.example`](../../.env.example) and [`../WHATSAPP_WEBHOOK_SETUP.md`](../WHATSAPP_WEBHOOK_SETUP.md)).
 
+### Mail (SMTP) — required for signup / task emails
+
+Prefer a transactional SMTP provider (SendGrid, Mailgun, Amazon SES, or Google Workspace SMTP relay). Raw Gmail “less secure” / personal accounts are unreliable on GCE.
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.your-provider.com
+MAIL_PORT=587
+MAIL_USERNAME=...
+MAIL_PASSWORD=...
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=noreply@your-domain.com
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+Checklist:
+
+- `MAIL_MAILER` must **not** be `log` or `array` in production (those never leave the server).
+- From-address domain needs SPF/DKIM at your DNS provider.
+- GCP VPC / firewall must allow outbound TCP **587** (or **465**) from the VM.
+- Queued mail (`Mail::queue`, `SendNotificationEmailJob`) only sends when Supervisor workers are `RUNNING` and `QUEUE_CONNECTION=redis`.
+- After changing `.env` mail vars: `php artisan config:cache` then `php artisan queue:restart`.
+
+Smoke test (on the VM):
+
+```bash
+php artisan tinker
+>>> config('mail.default')   # expect: smtp
+>>> Mail::raw('Support System SMTP smoke test', fn ($m) => $m->to('you@example.com')->subject('SMTP OK'));
+# If using the queue: dispatch then confirm the worker log shows the job; or use Mail::raw with sync temporarily.
+>>> php artisan queue:failed
+```
+
+Scheduled digests / due-soon / overdue also need the cron in §5 plus workers.
+
 ```bash
 php artisan key:generate
 php artisan migrate --force
@@ -172,6 +207,7 @@ Point Meta’s callback URL at your HTTPS domain (see [`../WHATSAPP_WEBHOOK_SETU
 | Config uses Redis | `php artisan tinker` → `config('queue.default')` → `redis` |
 | Job drains | Send a WhatsApp/test message; watch `storage/logs/worker.log` |
 | Failed jobs | `php artisan queue:failed` |
+| SMTP mail | Approve a signup or assign a task; confirm inbox + `notification_logs` / no new `queue:failed` |
 | Ops dashboard | Queues/Redis healthy in Operations UI |
 
 ## Common mistakes

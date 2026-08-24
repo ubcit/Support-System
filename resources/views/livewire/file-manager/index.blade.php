@@ -11,7 +11,7 @@
             </a>
             <button
                 type="button"
-                wire:click="openUploadModal"
+                @click="$wire.showUploadModal = true; $wire.openUploadModal()"
                 class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600"
             >
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
@@ -203,7 +203,7 @@
                                             </div>
                                             <p class="text-sm font-medium text-gray-800 dark:text-white/90">No files yet</p>
                                             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Upload your first file to start building the library.</p>
-                                            <button type="button" wire:click="openUploadModal" class="mt-4 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Upload File</button>
+                                            <button type="button" @click="$wire.showUploadModal = true; $wire.openUploadModal()" class="mt-4 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Upload File</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -245,7 +245,7 @@
                 <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">Drop files into the library for tasks, conversations, and projects.</p>
                 <button
                     type="button"
-                    wire:click="openUploadModal"
+                    @click="$wire.showUploadModal = true; $wire.openUploadModal()"
                     class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.03]"
                 >
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
@@ -256,7 +256,7 @@
     </div>
 
     <x-ui.slide-form-modal
-        :show="$showUploadModal"
+        entangle="showUploadModal" loading-target="openUploadModal"
         title="Upload File"
         description="Stored in the workspace library for tasks, conversations, and projects."
         close-method="closeUploadModal"

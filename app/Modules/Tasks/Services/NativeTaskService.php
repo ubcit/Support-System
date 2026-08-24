@@ -88,7 +88,10 @@ class NativeTaskService
             }
         }
 
-        return $task->fresh(['subtasks', 'assignees', 'checklists', 'dependencies', 'stakeholders']);
+        $fresh = $task->fresh(['subtasks', 'assignees', 'checklists', 'dependencies', 'stakeholders', 'project.employees', 'creator']);
+        $this->notifyTaskCreated($fresh, $creator);
+
+        return $fresh;
     }
 
     public function createSubtask(Task $parentTask, array $data, ?Employee $creator = null): Task
@@ -480,7 +483,11 @@ class NativeTaskService
             ]);
         }
 
-        return $task->fresh(['assignees']);
+        $fresh = $task->fresh(['assignees']);
+        $added = array_values(array_diff($employeeIds, $oldIds));
+        $this->notifyAssigneesAdded($fresh, $added, $actor);
+
+        return $fresh;
     }
 
     /**
@@ -896,5 +903,103 @@ class NativeTaskService
         }
 
         return $actor->isPrivileged();
+    }
+
+    /**
+     * Email + in-app: assignees get task_assigned; other project members get task_created.
+     */
+    protected function notifyTaskCreated(Task $task, ?Employee $creator = null): void
+    {
+        $actionUrl = TaskNav::detailUrl($task->id, []);
+        $notificationService = app(NotificationService::class);
+        $creatorName = $creator?->name ?? $task->creator?->name ?? 'Someone';
+        $assigneeIds = $task->assignees->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        foreach ($task->assignees as $assignee) {
+            if ($creator && (int) $assignee->id === (int) $creator->id) {
+                continue;
+            }
+
+            $notificationService->send(
+                title: 'Task assigned: '.($task->title ?: 'Task'),
+                body: "{$creatorName} assigned you to this task.",
+                type: 'task_assigned',
+                employee: $assignee,
+                userId: $assignee->user_id,
+                actionUrl: $actionUrl,
+                metadata: ['task_id' => $task->id],
+            );
+
+            SendNotificationEmailJob::dispatch('task_assigned', $task->id, $assignee->id);
+        }
+
+        if (! $task->project_id) {
+            return;
+        }
+
+        $task->loadMissing('project.employees');
+        $notified = collect($assigneeIds);
+        if ($creator) {
+            $notified->push((int) $creator->id);
+        }
+        if ($task->created_by) {
+            $notified->push((int) $task->created_by);
+        }
+
+        foreach ($task->project?->employees ?? [] as $member) {
+            if ($notified->contains((int) $member->id)) {
+                continue;
+            }
+
+            $notificationService->send(
+                title: 'New task: '.($task->title ?: 'Task'),
+                body: "{$creatorName} created a task in {$task->project->name}.",
+                type: 'task_created',
+                employee: $member,
+                userId: $member->user_id,
+                actionUrl: $actionUrl,
+                metadata: ['task_id' => $task->id, 'project_id' => $task->project_id],
+            );
+        }
+
+        // One job fans out email to all project members (service excludes creator).
+        SendNotificationEmailJob::dispatch('task_created', $task->id, $creator?->id);
+    }
+
+    /**
+     * @param  list<int>  $addedEmployeeIds
+     */
+    protected function notifyAssigneesAdded(Task $task, array $addedEmployeeIds, ?Employee $actor = null): void
+    {
+        if ($addedEmployeeIds === []) {
+            return;
+        }
+
+        $actionUrl = TaskNav::detailUrl($task->id, []);
+        $notificationService = app(NotificationService::class);
+        $actorName = $actor?->name ?? 'Someone';
+
+        foreach ($addedEmployeeIds as $employeeId) {
+            if ($actor && (int) $employeeId === (int) $actor->id) {
+                continue;
+            }
+
+            $employee = Employee::find($employeeId);
+            if (! $employee) {
+                continue;
+            }
+
+            $notificationService->send(
+                title: 'Task assigned: '.($task->title ?: 'Task'),
+                body: "{$actorName} assigned you to this task.",
+                type: 'task_assigned',
+                employee: $employee,
+                userId: $employee->user_id,
+                actionUrl: $actionUrl,
+                metadata: ['task_id' => $task->id],
+            );
+
+            SendNotificationEmailJob::dispatch('task_assigned', $task->id, $employee->id);
+        }
     }
 }

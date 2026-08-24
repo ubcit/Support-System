@@ -3,7 +3,7 @@
         <x-slot:subtitle>{{ $filterSubtitle }}</x-slot:subtitle>
         <x-slot:actions>
             @if($canCreate)
-            <button type="button" wire:click="openCreateModal" class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600">
+            <button type="button" @click="$wire.showCreateModal = true; $wire.openCreateModal()" class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600">
                 <x-heroicon-m-plus class="h-4 w-4"/> New Task
             </button>
             @endif
@@ -71,7 +71,7 @@
                     <x-heroicon-o-check-circle class="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600"/>
                     <h3 class="mt-3 text-sm font-semibold text-gray-900 dark:text-white">No tasks here</h3>
                     <p class="mt-1 text-sm text-gray-500">Create a task or pick another project from the sidebar.</p>
-                    <button type="button" wire:click="openCreateModal" class="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+                    <button type="button" @click="$wire.showCreateModal = true; $wire.openCreateModal()" class="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
                         <x-heroicon-m-plus class="h-4 w-4"/> New Task
                     </button>
                 </div>
@@ -283,7 +283,7 @@
                                                 <button type="button" wire:click.stop="approveTask({{ $task->id }})" class="px-2 py-1 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700">
                                                     Approve &amp; done
                                                 </button>
-                                                <button type="button" wire:click.stop="openReviewModal({{ $task->id }})" class="px-2 py-1 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">
+                                                <button type="button" @click.stop="$wire.showReviewModal = true; $wire.openReviewModal({{ $task->id }})" class="px-2 py-1 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">
                                                     Changes
                                                 </button>
                                             </div>
@@ -586,7 +586,7 @@
                                         @if($isManager && $task->statusKey() === 'code_review')
                                             <div class="flex items-center gap-1" @mousedown.stop @click.stop draggable="false">
                                                 <button type="button" wire:click.stop="approveTask({{ $task->id }})" class="px-1.5 py-0.5 rounded bg-emerald-600 text-[9px] font-bold text-white hover:bg-emerald-700">Approve &amp; done</button>
-                                                <button type="button" wire:click.stop="openReviewModal({{ $task->id }})" class="px-1.5 py-0.5 rounded bg-red-600 text-[9px] font-bold text-white hover:bg-red-700">Changes</button>
+                                                <button type="button" @click.stop="$wire.showReviewModal = true; $wire.openReviewModal({{ $task->id }})" class="px-1.5 py-0.5 rounded bg-red-600 text-[9px] font-bold text-white hover:bg-red-700">Changes</button>
                                             </div>
                                         @endif
 
@@ -768,7 +768,7 @@
                                     <div class="flex items-center gap-1.5">
                                         @if($isManager && $t->statusKey() === 'code_review')
                                             <button type="button" wire:click="approveTask({{ $t->id }})" class="px-2 py-1 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700">Approve &amp; done</button>
-                                            <button type="button" wire:click="openReviewModal({{ $t->id }})" class="px-2 py-1 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">Changes</button>
+                                            <button type="button" @click="$wire.showReviewModal = true; $wire.openReviewModal({{ $t->id }})" class="px-2 py-1 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">Changes</button>
                                         @endif
                                         <a href="{{ \App\Helpers\TaskNav::detailUrl($t->id) }}" class="p-1 rounded text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition {{ $isManager && $t->statusKey() === 'code_review' ? '' : 'opacity-0 group-hover:opacity-100' }}" title="Open full task workspace" aria-label="Open full task workspace">
                                             <x-heroicon-m-arrow-top-right-on-square class="w-3.5 h-3.5"/>
@@ -828,7 +828,7 @@
                         <x-heroicon-o-calendar class="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600"/>
                         <h3 class="mt-3 text-sm font-semibold text-gray-900 dark:text-white">Nothing scheduled this month</h3>
                         <p class="mt-1 text-sm text-gray-500">Add a due date to a task, or create one for today.</p>
-                        <button type="button" wire:click="openCreateModal" class="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+                        <button type="button" @click="$wire.showCreateModal = true; $wire.openCreateModal()" class="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
                             <x-heroicon-m-plus class="h-4 w-4"/> New Task
                         </button>
                     </div>
@@ -851,7 +851,7 @@
                             $dayTasks = $tasks->filter(fn($t) => $t->due_date && $t->due_date->format('Y-m-d') === $currentDate);
                             $isToday = $currentDate === now()->format('Y-m-d');
                         @endphp
-                        <div wire:click="openCreateModal('{{ $currentDate }}')" class="min-h-[95px] p-1.5 border-b border-r border-gray-100 dark:border-white/5 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition {{ $isToday ? 'bg-brand-50/40 dark:bg-brand-950/20' : '' }}">
+                        <div @click="$wire.showCreateModal = true; $wire.openCreateModal('{{ $currentDate }}')" class="min-h-[95px] p-1.5 border-b border-r border-gray-100 dark:border-white/5 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition {{ $isToday ? 'bg-brand-50/40 dark:bg-brand-950/20' : '' }}">
                             <span class="text-[10px] font-bold {{ $isToday ? 'bg-brand-500 text-white w-5 h-5 rounded-full inline-flex items-center justify-center' : 'text-gray-400 dark:text-gray-500' }}">{{ $day }}</span>
                             <div class="space-y-1 mt-1">
                                 @foreach($dayTasks->take(3) as $dt)
@@ -1058,7 +1058,7 @@
 
     </div>
 
-    <x-ui.slide-form-modal :show="$showCreateModal" title="New Task" description="Create a task and optionally assign it to a project and teammate." close-method="$set('showCreateModal', false)" size="lg">
+    <x-ui.slide-form-modal entangle="showCreateModal" loading-target="openCreateModal" title="New Task" description="Create a task and optionally assign it to a project and teammate." close-method="$set('showCreateModal', false)" size="lg">
         <form id="modal-create-task" wire:submit="createTask" class="space-y-4">
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Title</label>
@@ -1093,7 +1093,7 @@
         </x-slot:footer>
     </x-ui.slide-form-modal>
 
-    <x-ui.slide-form-modal :show="$showEditModal" title="Edit Task" description="The list stays open. Expand for comments, checklists, and files." close-method="closeEditModal" size="xl" variant="drawer">
+    <x-ui.slide-form-modal entangle="showEditModal" loading-target="openEditModal" title="Edit Task" description="The list stays open. Expand for comments, checklists, and files." close-method="closeEditModal" size="xl" variant="drawer">
         <form id="modal-edit-task" wire:submit="editTask" class="space-y-4">
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Title</label>
@@ -1141,7 +1141,7 @@
         </x-slot:footer>
     </x-ui.slide-form-modal>
 
-    <x-ui.slide-form-modal :show="$showReviewModal" title="Request changes" description="The assignee will see this note in My Tasks and by email." close-method="closeReviewModal" size="sm">
+    <x-ui.slide-form-modal entangle="showReviewModal" loading-target="openReviewModal" title="Request changes" description="The assignee will see this note in My Tasks and by email." close-method="closeReviewModal" size="sm">
         <form id="modal-review-task" wire:submit="submitReview" class="space-y-3">
             @if($reviewingTaskTitle !== '')
                 <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $reviewingTaskTitle }}</p>

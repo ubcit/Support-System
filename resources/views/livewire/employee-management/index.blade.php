@@ -3,7 +3,7 @@
         <x-slot:subtitle>Directory, roles, and active workload</x-slot:subtitle>
         <x-slot:actions>
             @if($canManage)
-            <x-ui.button wire:click="openCreateModal">
+            <x-ui.button @click="$wire.showCreateModal = true; $wire.openCreateModal()">
                 <x-heroicon-m-plus class="h-4 w-4"/> Hire Employee
             </x-ui.button>
             @endif
@@ -69,7 +69,7 @@
                         </div>
                         <div class="flex items-center gap-1.5">
                             @if($canManage)
-                            <x-ui.button variant="outline" size="icon" wire:click="openEditModal" title="Edit profile" aria-label="Edit profile">
+                            <x-ui.button variant="outline" size="icon" @click="$wire.showEditModal = true; $wire.openEditModal()" title="Edit profile" aria-label="Edit profile">
                                 <x-heroicon-m-pencil-square class="h-4 w-4"/>
                             </x-ui.button>
                             <x-ui.confirm-button
@@ -155,7 +155,7 @@
         </div>
     </div>
 
-    <x-ui.slide-form-modal :show="$showCreateModal" title="Hire Employee" description="Create an employee profile and availability settings." close-method="$set('showCreateModal', false)" size="md">
+    <x-ui.slide-form-modal entangle="showCreateModal" loading-target="openCreateModal" title="Hire Employee" description="Create an employee profile and availability settings." close-method="$set('showCreateModal', false)" size="md">
         <form id="modal-hire-employee" wire:submit="hireEmployee" class="space-y-4">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
@@ -203,7 +203,7 @@
         </x-slot:footer>
     </x-ui.slide-form-modal>
 
-    <x-ui.slide-form-modal :show="$showEditModal" title="Edit Profile" description="Update employee details and workload capacity." close-method="$set('showEditModal', false)" size="md">
+    <x-ui.slide-form-modal entangle="showEditModal" loading-target="openEditModal" title="Edit Profile" description="Update employee details and workload capacity." close-method="$set('showEditModal', false)" size="md">
         <form id="modal-edit-employee" wire:submit="editEmployee" class="space-y-4">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>

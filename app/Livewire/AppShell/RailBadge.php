@@ -23,13 +23,21 @@ class RailBadge extends Component
     public function render()
     {
         $badges = RailBadges::for(auth()->user()?->resolveEmployee(), $this->isWorkspace);
-        $count = $this->kind === 'inbox'
-            ? (int) ($badges['inbox_unread'] ?? 0)
-            : (int) ($badges['tasks_overdue'] ?? 0);
+        $count = match ($this->kind) {
+            'inbox' => (int) ($badges['inbox_unread'] ?? 0),
+            'signup' => (int) ($badges['signup_pending'] ?? 0),
+            default => (int) ($badges['tasks_overdue'] ?? 0),
+        };
+
+        $label = match ($this->kind) {
+            'inbox' => 'unread',
+            'signup' => 'pending signups',
+            default => 'overdue',
+        };
 
         return view('livewire.app-shell.rail-badge', [
             'count' => $count,
-            'label' => $this->kind === 'inbox' ? 'unread' : 'overdue',
+            'label' => $label,
         ]);
     }
 }

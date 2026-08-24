@@ -8,7 +8,7 @@
             </x-ui.button>
             @endif
             @if($canManage)
-            <x-ui.button wire:click="openCreateModal">
+            <x-ui.button @click="$wire.showCreateModal = true; $wire.openCreateModal()">
                 <x-heroicon-m-plus class="h-4 w-4"/> New Project
             </x-ui.button>
             @endif
@@ -72,7 +72,7 @@
                     </div>
                     <div class="flex items-center gap-1.5">
                         @if($canManage)
-                        <x-ui.button variant="outline" size="icon" wire:click="openEditModal({{ $selected_project->id }})" title="Edit Project" aria-label="Edit Project">
+                        <x-ui.button variant="outline" size="icon" @click="$wire.showEditModal = true; $wire.openEditModal({{ $selected_project->id }})" title="Edit Project" aria-label="Edit Project">
                             <x-heroicon-m-pencil-square class="h-4 w-4"/>
                         </x-ui.button>
                         <x-ui.confirm-button
@@ -248,7 +248,7 @@
                     <h3 class="mt-3 text-sm font-semibold text-gray-900 dark:text-white">No projects yet</h3>
                     <p class="mt-1 text-sm text-gray-500">Create a project to get started. You can link customers later with the project code.</p>
                     @if($canManage)
-                    <x-ui.button class="mt-4" wire:click="openCreateModal">
+                    <x-ui.button class="mt-4" @click="$wire.showCreateModal = true; $wire.openCreateModal()">
                         <x-heroicon-m-plus class="h-4 w-4"/> New Project
                     </x-ui.button>
                     @endif
@@ -342,7 +342,7 @@
         @endif
     </div>
 
-    <x-ui.slide-form-modal :show="$showCreateModal" title="New Project" description="Set the team now; link a customer later with the project code if needed." close-method="$set('showCreateModal', false)" size="lg">
+    <x-ui.slide-form-modal entangle="showCreateModal" loading-target="openCreateModal" title="New Project" description="Set the team now; link a customer later with the project code if needed." close-method="$set('showCreateModal', false)" size="lg">
         <form id="modal-create-project" wire:submit="newProject" class="space-y-4">
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Name</label>
@@ -375,7 +375,7 @@
         </x-slot:footer>
     </x-ui.slide-form-modal>
 
-    <x-ui.slide-form-modal :show="$showEditModal" title="Edit Project" description="Update project details and team assignment." close-method="$set('showEditModal', false)" size="lg">
+    <x-ui.slide-form-modal entangle="showEditModal" loading-target="openEditModal" title="Edit Project" description="Update project details and team assignment." close-method="$set('showEditModal', false)" size="lg">
         <form id="modal-edit-project" wire:submit="editProject" class="space-y-4">
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Name</label>

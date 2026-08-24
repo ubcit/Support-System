@@ -8,6 +8,7 @@ use App\Livewire\Auth\Register;
 use App\Livewire\SignupRequests\Index as SignupRequestsIndex;
 use App\Mail\SignupApprovedMail;
 use App\Mail\SignupRejectedMail;
+use App\Mail\SignupRequestReceivedMail;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,8 +17,10 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
+use Modules\Authentication\Services\SignupRequestNotifier;
 use Modules\Employees\Models\Employee;
 use Modules\MultiTenancy\Models\Workspace;
+use Modules\Notifications\Models\Notification;
 use Modules\Security\Models\Role;
 use Tests\TestCase;
 
@@ -91,6 +94,8 @@ class SignupApprovalFlowTest extends TestCase
 
     public function test_register_creates_pending_user_and_does_not_authenticate(): void
     {
+        Mail::fake();
+
         Livewire::test(Register::class)
             ->set('name', 'Alice Applicant')
             ->set('email', 'alice@thespace.app')
@@ -104,6 +109,22 @@ class SignupApprovalFlowTest extends TestCase
         $this->assertTrue($user->isPending());
         $this->assertSame('+9647705550001', $user->phone);
         $this->assertGuest();
+
+        $this->assertSame(1, SignupRequestNotifier::pendingCountFor($this->boss));
+        $this->assertSame(0, SignupRequestNotifier::pendingCountFor($this->employeeOnly));
+
+        $this->assertTrue(
+            Notification::query()
+                ->where('type', 'signup_request')
+                ->where('employee_id', $this->boss->resolveEmployee()->id)
+                ->where('metadata->user_id', $user->id)
+                ->exists()
+        );
+
+        Mail::assertQueued(SignupRequestReceivedMail::class, function (SignupRequestReceivedMail $mail) use ($user) {
+            return $mail->pendingUser->id === $user->id
+                && $mail->recipient->id === $this->boss->resolveEmployee()->id;
+        });
     }
 
     public function test_register_requires_phone(): void

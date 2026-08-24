@@ -3,6 +3,7 @@
 namespace Modules\Authentication\Services;
 
 use App\Enums\UserApprovalStatus;
+use App\Helpers\AppShell;
 use App\Mail\SignupApprovedMail;
 use App\Mail\SignupRejectedMail;
 use App\Models\User;
@@ -66,6 +67,8 @@ class SignupApprovalService
                 reviewerName: $reviewer->name,
             )
         );
+
+        AppShell::refresh();
     }
 
     /**
@@ -97,5 +100,7 @@ class SignupApprovalService
                 rejectionMessage: $message,
             )
         );
+
+        AppShell::refresh();
     }
 }

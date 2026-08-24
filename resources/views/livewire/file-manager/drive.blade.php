@@ -11,7 +11,7 @@
             </a>
             <button
                 type="button"
-                wire:click="openUploadModal"
+                @click="$wire.showUploadModal = true; $wire.openUploadModal()"
                 class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600"
             >
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
@@ -140,7 +140,7 @@
                     </div>
                     <p class="text-sm font-medium text-gray-800 dark:text-white/90">No files yet</p>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Upload files to browse them in Drive with previews.</p>
-                    <button type="button" wire:click="openUploadModal" class="mt-4 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Upload File</button>
+                    <button type="button" @click="$wire.showUploadModal = true; $wire.openUploadModal()" class="mt-4 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Upload File</button>
                 </div>
             </div>
         @endforelse
@@ -216,7 +216,7 @@
     @endif
 
     <x-ui.slide-form-modal
-        :show="$showUploadModal"
+        entangle="showUploadModal" loading-target="openUploadModal"
         title="Upload File"
         description="Stored in the workspace library for tasks, conversations, and projects."
         close-method="closeUploadModal"

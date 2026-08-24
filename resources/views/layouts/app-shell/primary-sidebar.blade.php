@@ -31,10 +31,11 @@
                     aria-label="{{ $destination['label'] }}"
                     @if ($isServerActive) aria-current="page" @endif
                     :aria-current="forceMore ? 'page' : null"
-                    class="{{ $baseClasses }}"
+                    class="relative {{ $baseClasses }}"
                     :class="forceMore ? '{{ $activeClasses }}' : '{{ $inactiveClasses }}'"
                 >
                     <span class="[&>svg]:h-5 [&>svg]:w-5">{!! \App\Helpers\MenuHelper::getIconSvg($destination['icon']) !!}</span>
+                    <livewire:app-shell.rail-badge kind="signup" placement="rail" :key="'rail-badge-signup'" />
                 </button>
             @else
                 <a

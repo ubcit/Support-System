@@ -4,16 +4,21 @@ namespace Modules\Notifications\Services;
 
 use App\Mail\DailyDigestMail;
 use App\Mail\CommentMentionMail;
+use App\Mail\IssueAssignedMail;
 use App\Mail\NewIssueMail;
 use App\Mail\OverdueTaskMail;
 use App\Mail\ProjectDeadlineMail;
+use App\Mail\ProjectMemberAddedMail;
 use App\Mail\ReviewDecisionMail;
 use App\Mail\ReviewRequestedMail;
+use App\Mail\SessionReadyMail;
 use App\Mail\TaskAssignedMail;
 use App\Mail\TaskCompletedMail;
+use App\Mail\TaskCreatedMail;
 use App\Mail\TaskDueSoonMail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Modules\Communication\Models\ConversationSession;
 use Modules\Employees\Models\Employee;
 use Modules\Issues\Models\Issue;
 use Modules\Notifications\Models\NotificationLog;
@@ -200,13 +205,28 @@ class EmailNotificationService
     }
 
     /**
-     * Send task-completed notification to all assignees.
+     * Send task-completed notification to assignees, creator, and watchers.
      */
     public function sendTaskCompleted(Task $task): void
     {
-        $task->loadMissing(['project', 'assignees']);
+        $task->loadMissing(['project', 'assignees', 'creator', 'stakeholders.employee']);
 
-        foreach ($task->assignees as $employee) {
+        $recipients = collect($task->assignees);
+
+        if ($task->creator) {
+            $recipients->push($task->creator);
+        }
+
+        foreach ($task->stakeholders as $stakeholder) {
+            if ($stakeholder->employee) {
+                $recipients->push($stakeholder->employee);
+            }
+        }
+
+        foreach ($recipients->unique('id') as $employee) {
+            if (! $employee instanceof Employee) {
+                continue;
+            }
             if (! $this->shouldNotify($employee, 'task_completed')) {
                 continue;
             }
@@ -215,9 +235,95 @@ class EmailNotificationService
                 $employee,
                 new TaskCompletedMail($employee, $task),
                 'task_completed',
-                'Task completed: ' . $task->title,
+                'Task completed: '.$task->title,
             );
         }
+    }
+
+    /**
+     * Notify project members that a task was created (excludes creator).
+     */
+    public function sendTaskCreated(Task $task, ?Employee $exclude = null): void
+    {
+        $task->loadMissing(['project.employees', 'creator', 'assignees']);
+
+        if (! $task->project) {
+            return;
+        }
+
+        $creatorName = $task->creator?->name ?? $exclude?->name;
+        $skipIds = $task->assignees->pluck('id')->map(fn ($id) => (int) $id)->all();
+        if ($exclude) {
+            $skipIds[] = (int) $exclude->id;
+        }
+        if ($task->created_by) {
+            $skipIds[] = (int) $task->created_by;
+        }
+        $skipIds = array_unique($skipIds);
+
+        foreach ($task->project->employees as $employee) {
+            if (in_array((int) $employee->id, $skipIds, true)) {
+                continue;
+            }
+            if (! $this->shouldNotify($employee, 'task_created')) {
+                continue;
+            }
+
+            $this->sendAndLog(
+                $employee,
+                new TaskCreatedMail($employee, $task, $creatorName),
+                'task_created',
+                'New task: '.$task->title,
+            );
+        }
+    }
+
+    public function sendIssueAssigned(Issue $issue, Employee $employee): void
+    {
+        if (! $this->shouldNotify($employee, 'issue_assigned')) {
+            return;
+        }
+
+        $issue->loadMissing(['project', 'customer']);
+
+        $this->sendAndLog(
+            $employee,
+            new IssueAssignedMail($employee, $issue),
+            'issue_assigned',
+            'Issue assigned: '.$issue->title,
+        );
+    }
+
+    public function sendProjectMemberAdded(Project $project, Employee $employee): void
+    {
+        if (! $this->shouldNotify($employee, 'project_member_added')) {
+            return;
+        }
+
+        $this->sendAndLog(
+            $employee,
+            new ProjectMemberAddedMail($employee, $project),
+            'project_member_added',
+            'Added to project: '.$project->name,
+        );
+    }
+
+    public function sendConversationNeedsHuman(ConversationSession $session, Employee $employee): void
+    {
+        if (! $this->shouldNotify($employee, 'conversation_needs_human')) {
+            return;
+        }
+
+        $session->loadMissing(['conversation.customer', 'project']);
+        $customer = $session->conversation?->customer;
+        $project = $session->project;
+
+        $this->sendAndLog(
+            $employee,
+            new SessionReadyMail($employee, $session, $customer, $project),
+            'conversation_needs_human',
+            'Conversation needs attention',
+        );
     }
 
     /**

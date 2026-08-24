@@ -53,6 +53,8 @@ class AuthService
             'status' => UserApprovalStatus::Pending->value,
         ]);
 
+        app(SignupRequestNotifier::class)->notifyPendingSignup($user);
+
         return [
             'user' => $user,
             // We intentionally do not issue an API token until the account is approved.

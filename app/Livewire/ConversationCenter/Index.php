@@ -272,22 +272,34 @@ class Index extends Component
     public function openApproveModal(): void
     {
         if (! $this->selectedConversationId) {
+            $this->showApproveModal = false;
+
             return;
         }
 
         $conversation = Conversation::with(['customer', 'messages'])->find($this->selectedConversationId);
         $session = $this->selectedSession();
         if (! $conversation || ! $session) {
+            $this->showApproveModal = false;
+
             return;
         }
 
         $this->creatingFromSelection = false;
         $copilot = $this->copilotState($session, $conversation);
         if (! empty($copilot['auto_created'])) {
+            $this->showApproveModal = false;
             session()->flash('error', 'This session already created tasks automatically.');
 
             return;
         }
+
+        // Open shell immediately; remaining fields fill under wire:loading.
+        $this->showApproveModal = true;
+        $this->approveTitle = '';
+        $this->approveDescription = '';
+        $this->approvePriority = 'medium';
+        $this->approveAssigneeId = null;
 
         $latestMessage = $session->messages()
             ->get()
@@ -313,7 +325,6 @@ class Index extends Component
         $this->approvePriority = $priority;
         $this->fillApproveProject($conversation->customer_id, $copilot['project'] ?? null);
         $this->approveAssigneeId = null;
-        $this->showApproveModal = true;
     }
 
     public function openApproveModalFromSelection(): void
@@ -322,18 +333,19 @@ class Index extends Component
         $session = $this->selectedSession();
         $messages = $this->selectedSessionMessages();
         if (! $conversation || ! $session || $messages->isEmpty()) {
+            $this->showApproveModal = false;
             session()->flash('error', 'Select one or more messages first.');
 
             return;
         }
 
         $this->creatingFromSelection = true;
+        $this->showApproveModal = true;
         $this->approveTitle = $this->titleFromMessages($messages, $conversation->customer?->name);
         $this->approveDescription = $this->descriptionFromMessages($messages);
         $this->approvePriority = 'medium';
         $this->fillApproveProject($conversation->customer_id);
         $this->approveAssigneeId = null;
-        $this->showApproveModal = true;
     }
 
     public function approveAndCreateTask(): void

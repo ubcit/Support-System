@@ -1,14 +1,14 @@
 <div>
     <x-common.page-breadcrumb pageTitle="Benchmark Dashboard">
         <x-slot:actions>
-            <button wire:click="openRunModal" class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600">
+            <button @click="$wire.showRunModal = true; $wire.openRunModal()" class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600">
                 <x-heroicon-o-play class="w-4 h-4"/> Run Golden Suite
             </button>
         </x-slot:actions>
     </x-common.page-breadcrumb>
 
     <!-- Run Modal -->
-    <x-ui.slide-form-modal :show="$showRunModal" title="Run Golden Suite" description="Pick the model and prompt version for this benchmark run." close-method="$set('showRunModal', false)" size="sm">
+    <x-ui.slide-form-modal entangle="showRunModal" loading-target="openRunModal" title="Run Golden Suite" description="Pick the model and prompt version for this benchmark run." close-method="$set('showRunModal', false)" size="sm">
         <form id="modal-run-benchmark" wire:submit.prevent="runGoldenSuite" class="space-y-4">
             <x-form.select.searchable
                 wire:model="ai_model_id"

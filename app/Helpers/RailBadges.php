@@ -2,6 +2,8 @@
 
 namespace App\Helpers;
 
+use App\Models\User;
+use Modules\Authentication\Services\SignupRequestNotifier;
 use Modules\Employees\Models\Employee;
 use Modules\Tasks\Models\Task;
 
@@ -10,12 +12,13 @@ class RailBadges
     /**
      * Counts shown on the primary rail icons. Request-cached.
      *
-     * @return array{inbox_unread: int, tasks_overdue: int}
+     * @return array{inbox_unread: int, tasks_overdue: int, signup_pending: int}
      */
     public static function for(?Employee $actor = null, ?bool $isWorkspace = null): array
     {
         $isWorkspace = $isWorkspace ?? request()->is('workspace*');
-        $key = 'rail.badges.'.($actor?->id ?? 'anon').'.'.($isWorkspace ? '1' : '0');
+        $viewer = $actor?->user ?? auth()->user();
+        $key = 'rail.badges.'.($actor?->id ?? 'anon').'.'.($viewer?->id ?? '0').'.'.($isWorkspace ? '1' : '0');
 
         if (request()->attributes->has($key)) {
             return request()->attributes->get($key);
@@ -41,6 +44,7 @@ class RailBadges
         $payload = [
             'inbox_unread' => $isWorkspace ? 0 : InboxCounts::unread(),
             'tasks_overdue' => (int) $overdue->count(),
+            'signup_pending' => $isWorkspace ? 0 : SignupRequestNotifier::pendingCountFor($viewer instanceof User ? $viewer : null),
         ];
 
         request()->attributes->set($key, $payload);

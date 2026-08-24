@@ -2,7 +2,7 @@
     <x-common.page-breadcrumb pageTitle="Customers">
         <x-slot:subtitle>Directory, conversations, and account context</x-slot:subtitle>
         <x-slot:actions>
-            <x-ui.button wire:click="openCreateModal">
+            <x-ui.button @click="$wire.showCreateModal = true; $wire.openCreateModal()">
                 <x-heroicon-m-plus class="h-4 w-4"/> New Customer
             </x-ui.button>
         </x-slot:actions>
@@ -66,7 +66,7 @@
                         </div>
                         <div class="flex items-center gap-1.5">
                             <a href="{{ route('customer-ai-limits') }}" class="{{ \App\Helpers\UiButton::classes('outline', 'sm') }}">AI Limits</a>
-                            <x-ui.button variant="outline" size="icon" wire:click="openEditModal" title="Edit customer" aria-label="Edit customer">
+                            <x-ui.button variant="outline" size="icon" @click="$wire.showEditModal = true; $wire.openEditModal()" title="Edit customer" aria-label="Edit customer">
                                 <x-heroicon-m-pencil-square class="h-4 w-4"/>
                             </x-ui.button>
                             <x-ui.confirm-button
@@ -269,7 +269,7 @@
         </div>
     </div>
 
-    <x-ui.slide-form-modal :show="$showCreateModal" title="New Customer" description="Add a customer account to CRM." close-method="$set('showCreateModal', false)" size="sm">
+    <x-ui.slide-form-modal entangle="showCreateModal" loading-target="openCreateModal" title="New Customer" description="Add a customer account to CRM." close-method="$set('showCreateModal', false)" size="sm">
         <form id="modal-create-customer" wire:submit="newCustomer" class="space-y-4">
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Name</label>
@@ -296,7 +296,7 @@
         </x-slot:footer>
     </x-ui.slide-form-modal>
 
-    <x-ui.slide-form-modal :show="$showEditModal" title="Edit Account" description="Update customer contact details." close-method="$set('showEditModal', false)" size="sm">
+    <x-ui.slide-form-modal entangle="showEditModal" loading-target="openEditModal" title="Edit Account" description="Update customer contact details." close-method="$set('showEditModal', false)" size="sm">
         <form id="modal-edit-customer" wire:submit="editCustomer" class="space-y-4">
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Name</label>

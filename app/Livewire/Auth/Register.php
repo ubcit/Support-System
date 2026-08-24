@@ -47,13 +47,16 @@ class Register extends Component
 
         RateLimiter::hit($key, 60);
 
-        User::create([
+        $user = User::create([
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,
             'password' => Hash::make($this->password),
             'status' => UserApprovalStatus::Pending->value,
         ]);
+
+        app(\Modules\Authentication\Services\SignupRequestNotifier::class)
+            ->notifyPendingSignup($user);
 
         RateLimiter::clear($key);
 

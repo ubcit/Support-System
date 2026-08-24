@@ -2,7 +2,7 @@
     <x-common.page-breadcrumb pageTitle="Rules Center">
         <x-slot:subtitle>Automation rules for work and messaging</x-slot:subtitle>
         <x-slot:actions>
-            <x-ui.button wire:click="openCreateModal">
+            <x-ui.button @click="$wire.showCreateModal = true; $wire.openCreateModal()">
                 <x-heroicon-m-plus class="h-4 w-4"/> New Rule
             </x-ui.button>
         </x-slot:actions>
@@ -60,7 +60,7 @@
         </div>
     </div>
 
-    <x-ui.slide-form-modal :show="$showCreateModal" title="New Automation Rule" description="Create a trigger-based automation for workspace events." close-method="$set('showCreateModal', false)" size="md">
+    <x-ui.slide-form-modal entangle="showCreateModal" loading-target="openCreateModal" title="New Automation Rule" description="Create a trigger-based automation for workspace events." close-method="$set('showCreateModal', false)" size="md">
         <form id="modal-create-rule" wire:submit="createRule" class="space-y-4">
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Name</label>

@@ -502,6 +502,9 @@ class Index extends Component
 
     public function openEditModal(int $taskId): void
     {
+        $this->showEditModal = true;
+        $this->editingTaskId = $taskId;
+
         $task = Task::with(['assignees', 'reviewers'])->find($taskId);
         if (! $task) {
             $this->closeEditModal();
@@ -519,7 +522,6 @@ class Index extends Component
         $this->formStartDate = $task->start_date?->format('Y-m-d');
         $this->formDescription = (string) $task->description;
         $this->editingTaskMustPassReview = $task->mustPassReview();
-        $this->showEditModal = true;
     }
 
     public function closeEditModal(): void

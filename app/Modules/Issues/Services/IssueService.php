@@ -44,6 +44,10 @@ class IssueService
 
         SendNotificationEmailJob::dispatch('new_issue', $issue->id);
 
+        if ($loaded->assignee) {
+            SendNotificationEmailJob::dispatch('issue_assigned', $loaded->id, $loaded->assignee->id);
+        }
+
         return $loaded;
     }
 
@@ -94,7 +98,24 @@ class IssueService
 
         $this->addTimelineEntry($issue, 'assigned', (string) $oldAssignee, (string) $employeeId, $assignedBy);
 
-        return $issue->load('assignee');
+        $loaded = $issue->load('assignee');
+
+        if ((int) $oldAssignee !== (int) $employeeId && $loaded->assignee) {
+            SendNotificationEmailJob::dispatch('issue_assigned', $loaded->id, $loaded->assignee->id);
+
+            $assignee = $loaded->assignee;
+            app(\Modules\Notifications\Services\NotificationService::class)->send(
+                title: 'Issue assigned: '.($loaded->title ?: 'Issue'),
+                body: 'You were assigned to this issue.',
+                type: 'issue_assigned',
+                employee: $assignee,
+                userId: $assignee->user_id,
+                actionUrl: null,
+                metadata: ['issue_id' => $loaded->id],
+            );
+        }
+
+        return $loaded;
     }
 
     public function addComment(string $uuid, array $data): Issue

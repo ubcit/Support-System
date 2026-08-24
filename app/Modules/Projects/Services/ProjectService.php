@@ -4,7 +4,10 @@ namespace Modules\Projects\Services;
 
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use App\Jobs\SendNotificationEmailJob;
 use Modules\Customers\Models\Customer;
+use Modules\Employees\Models\Employee;
+use Modules\Notifications\Services\NotificationService;
 use Modules\Projects\Enums\ProjectStatus;
 use Modules\Projects\Models\Project;
 use Modules\Projects\Repositories\ProjectRepositoryInterface;
@@ -133,6 +136,7 @@ class ProjectService
     public function assignEmployee(string $projectUuid, int $employeeId, ?string $role = null): void
     {
         $project = $this->repository->findByUuidOrFail($projectUuid);
+        $alreadyMember = $project->employees()->where('employees.id', $employeeId)->exists();
 
         $project->employees()->syncWithoutDetaching([
             $employeeId => [
@@ -140,6 +144,10 @@ class ProjectService
                 'assigned_at' => now(),
             ],
         ]);
+
+        if (! $alreadyMember) {
+            $this->notifyMembersAdded($project, [$employeeId]);
+        }
     }
 
     /**
@@ -151,7 +159,46 @@ class ProjectService
      */
     public function syncEmployees(Project $project, array $employeeIds): void
     {
-        $project->employees()->sync(array_values(array_unique(array_filter($employeeIds))));
+        $employeeIds = array_values(array_unique(array_filter($employeeIds)));
+        $oldIds = $project->employees()->pluck('employees.id')->map(fn ($id) => (int) $id)->all();
+
+        $project->employees()->sync($employeeIds);
+
+        $added = array_values(array_diff(
+            array_map('intval', $employeeIds),
+            $oldIds
+        ));
+
+        if ($added !== []) {
+            $this->notifyMembersAdded($project, $added);
+        }
+    }
+
+    /**
+     * @param  list<int>  $employeeIds
+     */
+    protected function notifyMembersAdded(Project $project, array $employeeIds): void
+    {
+        $notifications = app(NotificationService::class);
+
+        foreach ($employeeIds as $employeeId) {
+            $employee = Employee::find($employeeId);
+            if (! $employee) {
+                continue;
+            }
+
+            $notifications->send(
+                title: 'Added to project: '.$project->name,
+                body: 'You were added to this project team.',
+                type: 'project_member_added',
+                employee: $employee,
+                userId: $employee->user_id,
+                actionUrl: route('project-hub'),
+                metadata: ['project_id' => $project->id],
+            );
+
+            SendNotificationEmailJob::dispatch('project_member_added', $project->id, $employee->id);
+        }
     }
 
     /**

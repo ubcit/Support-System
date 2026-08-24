@@ -47,6 +47,8 @@
                             <livewire:app-shell.rail-badge kind="inbox" placement="mobile" :key="'rail-badge-inbox-mobile'" />
                         @elseif ($destination['key'] === 'my-tasks')
                             <livewire:app-shell.rail-badge kind="tasks" placement="mobile" :key="'rail-badge-tasks-mobile'" />
+                        @elseif ($destination['key'] === 'more')
+                            <livewire:app-shell.rail-badge kind="signup" placement="mobile" :key="'rail-badge-signup-mobile'" />
                         @endif
                     </a>
                     @if ($hasPanel)
@@ -99,9 +101,13 @@
                             @include('layouts.app-shell.secondary-sidebar.profile-panel')
                         @elseif ($destination['panel'] === 'more')
                             @forelse ($moreLeftoverItems ?? [] as $item)
+                                @php $isSignupRequests = str_contains($item['path'] ?? '', 'signup-requests'); @endphp
                                 <a href="{{ $item['path'] }}" wire:navigate @click="$store.shell.closeMobile()" class="flex items-center gap-2 truncate rounded-lg px-2 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5">
                                     <span class="[&>svg]:h-3.5 [&>svg]:w-3.5 shrink-0">{!! \App\Helpers\MenuHelper::getIconSvg($item['icon'] ?? \App\Helpers\MenuHelper::resolveItemIcon($item['name'])) !!}</span>
-                                    {{ $item['name'] }}
+                                    <span class="min-w-0 flex-1 truncate">{{ $item['name'] }}</span>
+                                    @if ($isSignupRequests)
+                                        <livewire:app-shell.rail-badge kind="signup" placement="mobile" :key="'mobile-more-signup-'.md5($item['path'])" />
+                                    @endif
                                 </a>
                             @empty
                                 <p class="px-2 py-1 text-xs text-gray-400">Nothing else to show.</p>

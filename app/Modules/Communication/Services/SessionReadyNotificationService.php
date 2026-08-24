@@ -3,10 +3,9 @@
 namespace Modules\Communication\Services;
 
 use App\Helpers\InboxNav;
-use App\Mail\SessionReadyMail;
+use App\Jobs\SendNotificationEmailJob;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Modules\Communication\Enums\ConversationSessionStatus;
 use Modules\Communication\Enums\MessageChannel;
 use Modules\Communication\Enums\MessageDirection;
@@ -19,6 +18,7 @@ use Modules\Communication\Support\CustomerLocale;
 use Modules\Employees\Models\Employee;
 use Modules\MultiTenancy\Models\Workspace;
 use Modules\Notifications\Models\NotificationLog;
+use Modules\Notifications\Services\NotificationService;
 use Modules\Projects\Models\Project;
 use Modules\Projects\Services\ProjectService;
 use Modules\Tasks\Models\Task;
@@ -141,6 +141,7 @@ class SessionReadyNotificationService
             ."العنوان: {$title}";
 
         foreach ($recipients as $employee) {
+            $this->sendStaffInApp($employee, $session, $customerName, $title, $url);
             $this->sendStaffEmail($employee, $session, $customer, $project);
             $this->sendStaffWhatsApp($employee, $whatsAppBody, $session);
         }
@@ -203,6 +204,22 @@ class SessionReadyNotificationService
             ->get();
     }
 
+    protected function sendStaffInApp(Employee $employee, ConversationSession $session, string $customerName, string $title, string $url): void
+    {
+        app(NotificationService::class)->send(
+            title: 'Conversation needs attention',
+            body: "{$customerName}: {$title}",
+            type: 'conversation_needs_human',
+            employee: $employee,
+            userId: $employee->user_id,
+            actionUrl: $url,
+            metadata: [
+                'conversation_session_id' => $session->id,
+                'conversation_id' => $session->conversation_id,
+            ],
+        );
+    }
+
     protected function sendStaffEmail(Employee $employee, ConversationSession $session, $customer, ?Project $project): void
     {
         if (empty($employee->email)) {
@@ -214,26 +231,8 @@ class SessionReadyNotificationService
             return;
         }
 
-        try {
-            Mail::to($employee->email)->send(new SessionReadyMail($employee, $session, $customer, $project));
-
-            NotificationLog::create([
-                'channel' => 'email',
-                'recipient' => $employee->email,
-                'subject' => 'Session ready',
-                'body' => 'session_ready',
-                'status' => 'sent',
-                'notifiable_type' => Employee::class,
-                'notifiable_id' => $employee->id,
-                'sent_at' => now(),
-                'metadata' => [
-                    'type' => 'session_ready',
-                    'conversation_session_id' => $session->id,
-                ],
-            ]);
-        } catch (\Throwable $e) {
-            Log::error("SessionReady email failed for employee {$employee->id}: {$e->getMessage()}");
-        }
+        // Queue via job (conversation_needs_human) so SMTP uses workers like other mail.
+        SendNotificationEmailJob::dispatch('conversation_needs_human', $session->id, $employee->id);
     }
 
     protected function sendStaffWhatsApp(Employee $employee, string $body, ConversationSession $session): void
