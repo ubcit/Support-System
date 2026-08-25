@@ -1,0 +1,116 @@
+/**
+ * Shared Alpine helper for dropdowns that must escape overflow containers
+ * (tables, board columns, etc.) via body teleport + fixed positioning.
+ */
+export function createFloatingPanelState(config = {}) {
+    const align = config.align || 'left';
+    const width = config.width || 224;
+    const menuHeight = config.menuHeight || 260;
+    const gap = config.gap ?? 6;
+    const zIndex = config.zIndex ?? 100000;
+
+    return {
+        open: false,
+        panelStyle: {},
+        _reposition: null,
+
+        openPanel(afterOpen) {
+            this.open = true;
+            this.$nextTick(() => {
+                this.updatePosition();
+                this.bindReposition();
+                if (typeof afterOpen === 'function') {
+                    afterOpen();
+                }
+            });
+        },
+
+        closePanel() {
+            this.open = false;
+            this.unbindReposition();
+        },
+
+        togglePanel(afterOpen) {
+            if (this.open) {
+                this.closePanel();
+            } else {
+                this.openPanel(afterOpen);
+            }
+        },
+
+        updatePosition() {
+            const btn = this.$refs.trigger;
+            if (!btn) {
+                return;
+            }
+
+            const r = btn.getBoundingClientRect();
+            if (r.width === 0 && r.height === 0) {
+                this.closePanel();
+                return;
+            }
+
+            const spaceBelow = window.innerHeight - r.bottom;
+            const openUp = spaceBelow < menuHeight && r.top > spaceBelow;
+            const pad = 8;
+            let left;
+
+            if (align === 'right') {
+                left = r.right - width;
+            } else if (align === 'center') {
+                left = r.left + r.width / 2 - width / 2;
+            } else {
+                left = r.left;
+            }
+
+            if (left < pad) {
+                left = pad;
+            }
+            if (left + width > window.innerWidth - pad) {
+                left = Math.max(pad, window.innerWidth - width - pad);
+            }
+
+            this.panelStyle = {
+                position: 'fixed',
+                top: openUp ? 'auto' : `${r.bottom + gap}px`,
+                bottom: openUp ? `${window.innerHeight - r.top + gap}px` : 'auto',
+                left: `${left}px`,
+                width: `${width}px`,
+                zIndex,
+            };
+        },
+
+        bindReposition() {
+            this.unbindReposition();
+            this._reposition = () => this.updatePosition();
+            window.addEventListener('resize', this._reposition);
+            window.addEventListener('scroll', this._reposition, true);
+        },
+
+        unbindReposition() {
+            if (!this._reposition) {
+                return;
+            }
+            window.removeEventListener('resize', this._reposition);
+            window.removeEventListener('scroll', this._reposition, true);
+            this._reposition = null;
+        },
+
+        onOutside(event) {
+            if (this.$refs.trigger?.contains(event.target)) {
+                return;
+            }
+            this.closePanel();
+        },
+
+        destroy() {
+            this.unbindReposition();
+        },
+    };
+}
+
+window.createFloatingPanelState = createFloatingPanelState;
+
+document.addEventListener('alpine:init', () => {
+    window.Alpine.data('floatingPanel', (config = {}) => createFloatingPanelState(config));
+});

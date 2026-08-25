@@ -249,16 +249,18 @@
                                                class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer shrink-0">
 
                                         {{-- Fast Priority Selector (Inline Pill) --}}
-                                        <div x-data="{ open: false }" class="relative shrink-0" @mousedown.stop @click.stop draggable="false">
-                                            <button @click.stop="open = !open" @mousedown.stop class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition flex items-center gap-1 text-xs" title="Change priority" aria-label="Change priority">
+                                        <div x-data="floatingPanel({ width: 128, align: 'left', menuHeight: 180 })" class="relative shrink-0" @mousedown.stop @click.stop draggable="false" @keydown.escape.window="if (open) closePanel()" x-on:destroy="destroy()">
+                                            <button x-ref="trigger" @click.stop="togglePanel()" @mousedown.stop class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition flex items-center gap-1 text-xs" title="Change priority" aria-label="Change priority">
                                                 <x-ui.priority-dot :priority="$task->priority?->value" />
                                             </button>
-                                            <div x-show="open" @click.outside="open = false" x-cloak class="absolute left-0 mt-1 z-50 w-32 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1 text-xs">
-                                                <button type="button" wire:click="updateTaskPriority({{ $task->id }}, 'urgent')" @click="open = false" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="urgent" with-label /></button>
-                                                <button type="button" wire:click="updateTaskPriority({{ $task->id }}, 'high')" @click="open = false" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="high" with-label /></button>
-                                                <button type="button" wire:click="updateTaskPriority({{ $task->id }}, 'medium')" @click="open = false" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="medium" with-label /></button>
-                                                <button type="button" wire:click="updateTaskPriority({{ $task->id }}, 'low')" @click="open = false" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="low" with-label /></button>
-                                            </div>
+                                            <template x-teleport="body">
+                                                <div x-show="open" @click.outside="onOutside($event)" x-cloak :style="panelStyle" class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1 text-xs">
+                                                    <button type="button" wire:click="updateTaskPriority({{ $task->id }}, 'urgent')" @click="closePanel()" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="urgent" with-label /></button>
+                                                    <button type="button" wire:click="updateTaskPriority({{ $task->id }}, 'high')" @click="closePanel()" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="high" with-label /></button>
+                                                    <button type="button" wire:click="updateTaskPriority({{ $task->id }}, 'medium')" @click="closePanel()" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="medium" with-label /></button>
+                                                    <button type="button" wire:click="updateTaskPriority({{ $task->id }}, 'low')" @click="closePanel()" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="low" with-label /></button>
+                                                </div>
+                                            </template>
                                         </div>
 
                                         {{-- Title --}}
@@ -297,38 +299,40 @@
                                     {{-- Right Section: Status, Assignee, Due Date, Actions --}}
                                     <div class="flex items-center gap-3 shrink-0 ml-auto">
                                         {{-- Fast Inline Status Selector Pill --}}
-                                        <div x-data="{ open: false }" class="relative shrink-0" @mousedown.stop @click.stop draggable="false">
-                                            <button @click.stop="open = !open" @mousedown.stop class="px-2.5 py-1 rounded-lg text-[11px] font-bold border flex items-center gap-1 transition shadow-2xs {{ $statusBadge }}">
+                                        <div x-data="floatingPanel({ width: 144, align: 'right', menuHeight: 280 })" class="relative shrink-0" @mousedown.stop @click.stop draggable="false" @keydown.escape.window="if (open) closePanel()" x-on:destroy="destroy()">
+                                            <button x-ref="trigger" @click.stop="togglePanel()" @mousedown.stop class="px-2.5 py-1 rounded-lg text-[11px] font-bold border flex items-center gap-1 transition shadow-2xs {{ $statusBadge }}">
                                                 <span>{{ $task->status->label() }}</span>
                                                 <x-heroicon-m-chevron-down class="w-3 h-3 opacity-70"/>
                                             </button>
-                                            <div x-show="open" @click.outside="open = false" x-cloak class="absolute right-0 mt-1 z-50 w-36 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1 text-xs divide-y divide-gray-100 dark:divide-gray-700">
-                                                @foreach($workflowStates as $ws)
-                                                @continue(! $isManager && $task->mustPassReview() && in_array($ws->type, ['completed', 'closed'], true))
-                                                @php
-                                                    $isReviewState = str_contains(strtolower((string) $ws->name), 'review');
-                                                    $wsColor = $isReviewState
-                                                        ? 'text-purple-600 dark:text-purple-400'
-                                                        : match($ws->type) {
-                                                            'initial' => 'text-gray-700 dark:text-gray-200',
-                                                            'active' => 'text-blue-600 dark:text-blue-400',
-                                                            'completed' => 'text-emerald-600 dark:text-emerald-400',
-                                                            default => 'text-purple-600 dark:text-purple-400',
-                                                        };
-                                                    $wsDot = $isReviewState
-                                                        ? 'bg-purple-500'
-                                                        : match($ws->type) {
-                                                            'initial' => 'bg-gray-400',
-                                                            'active' => 'bg-blue-500',
-                                                            'completed' => 'bg-emerald-500',
-                                                            default => 'bg-purple-500',
-                                                        };
-                                                @endphp
-                                                <button wire:click="moveTaskToState({{ $task->id }}, {{ $ws->id }})" @click="open = false" class="w-full px-3 py-1.5 text-left font-semibold {{ $wsColor }} hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                                                    <span class="w-2 h-2 rounded-full {{ $wsDot }}"></span> {{ $ws->name }}
-                                                </button>
-                                                @endforeach
-                                            </div>
+                                            <template x-teleport="body">
+                                                <div x-show="open" @click.outside="onOutside($event)" x-cloak :style="panelStyle" class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1 text-xs divide-y divide-gray-100 dark:divide-gray-700">
+                                                    @foreach($workflowStates as $ws)
+                                                    @continue(! $isManager && $task->mustPassReview() && in_array($ws->type, ['completed', 'closed'], true))
+                                                    @php
+                                                        $isReviewState = str_contains(strtolower((string) $ws->name), 'review');
+                                                        $wsColor = $isReviewState
+                                                            ? 'text-purple-600 dark:text-purple-400'
+                                                            : match($ws->type) {
+                                                                'initial' => 'text-gray-700 dark:text-gray-200',
+                                                                'active' => 'text-blue-600 dark:text-blue-400',
+                                                                'completed' => 'text-emerald-600 dark:text-emerald-400',
+                                                                default => 'text-purple-600 dark:text-purple-400',
+                                                            };
+                                                        $wsDot = $isReviewState
+                                                            ? 'bg-purple-500'
+                                                            : match($ws->type) {
+                                                                'initial' => 'bg-gray-400',
+                                                                'active' => 'bg-blue-500',
+                                                                'completed' => 'bg-emerald-500',
+                                                                default => 'bg-purple-500',
+                                                            };
+                                                    @endphp
+                                                    <button wire:click="moveTaskToState({{ $task->id }}, {{ $ws->id }})" @click="closePanel()" class="w-full px-3 py-1.5 text-left font-semibold {{ $wsColor }} hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                        <span class="w-2 h-2 rounded-full {{ $wsDot }}"></span> {{ $ws->name }}
+                                                    </button>
+                                                    @endforeach
+                                                </div>
+                                            </template>
                                         </div>
 
                                         @if($isManager && $task->statusKey() === 'code_review')
@@ -343,8 +347,8 @@
                                         @endif
 
                                         {{-- Assignee Avatar Stack --}}
-                                        <div x-data="{ open: false }" class="relative shrink-0 flex items-center" @mousedown.stop @click.stop draggable="false">
-                                            <button @click.stop="open = !open" @mousedown.stop class="focus:outline-none flex items-center -space-x-1.5 transition transform hover:scale-105" title="Manage assignees">
+                                        <div x-data="floatingPanel({ width: 208, align: 'right', menuHeight: 220 })" class="relative shrink-0 flex items-center" @mousedown.stop @click.stop draggable="false" @keydown.escape.window="if (open) closePanel()" x-on:destroy="destroy()">
+                                            <button x-ref="trigger" @click.stop="togglePanel()" @mousedown.stop class="focus:outline-none flex items-center -space-x-1.5 transition transform hover:scale-105" title="Manage assignees">
                                                 @forelse($task->assignees->take(3) as $ass)
                                                     <x-ui.person-avatar :person="$ass" size="md" ring class="shadow-xs" />
                                                 @empty
@@ -358,22 +362,24 @@
                                                     </span>
                                                 @endif
                                             </button>
-                                            <div x-show="open" @click.outside="open = false" x-cloak class="absolute right-0 mt-1 z-50 w-52 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-1 text-xs max-h-48 overflow-y-auto space-y-0.5">
-                                                <button type="button" wire:click="updateTaskAssignee({{ $task->id }}, null)" @click="open = false" class="w-full px-2 py-1.5 text-left font-medium text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                                                    Unassigned
-                                                </button>
-                                                @foreach($employeeRoster as $emp)
-                                                    @php $isAssigned = $task->assignees->contains('id', $emp->id); @endphp
-                                                    <label class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-700 dark:text-gray-200">
-                                                        <input type="checkbox"
-                                                               wire:click="toggleTaskAssignee({{ $task->id }}, {{ $emp->id }})"
-                                                               {{ $isAssigned ? 'checked' : '' }}
-                                                               class="w-3.5 h-3.5 text-brand-600 rounded border-gray-300 dark:border-gray-600 focus:ring-brand-500 shrink-0">
-                                                        <x-ui.person-avatar :person="$emp" size="xs" />
-                                                        <span class="font-medium truncate">{{ $emp->name }}</span>
-                                                    </label>
-                                                @endforeach
-                                            </div>
+                                            <template x-teleport="body">
+                                                <div x-show="open" @click.outside="onOutside($event)" x-cloak :style="panelStyle" class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-1 text-xs max-h-48 overflow-y-auto space-y-0.5">
+                                                    <button type="button" wire:click="updateTaskAssignee({{ $task->id }}, null)" @click="closePanel()" class="w-full px-2 py-1.5 text-left font-medium text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                                                        Unassigned
+                                                    </button>
+                                                    @foreach($employeeRoster as $emp)
+                                                        @php $isAssigned = $task->assignees->contains('id', $emp->id); @endphp
+                                                        <label class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-700 dark:text-gray-200">
+                                                            <input type="checkbox"
+                                                                   wire:click="toggleTaskAssignee({{ $task->id }}, {{ $emp->id }})"
+                                                                   {{ $isAssigned ? 'checked' : '' }}
+                                                                   class="w-3.5 h-3.5 text-brand-600 rounded border-gray-300 dark:border-gray-600 focus:ring-brand-500 shrink-0">
+                                                            <x-ui.person-avatar :person="$emp" size="xs" />
+                                                            <span class="font-medium truncate">{{ $emp->name }}</span>
+                                                        </label>
+                                                    @endforeach
+                                                </div>
+                                            </template>
                                         </div>
 
                                         {{-- Due Date Picker Pill --}}
@@ -813,42 +819,46 @@
                                 </td>
                                 <td class="px-3 py-2.5">
                                     {{-- Inline Status Pill --}}
-                                    <div x-data="{ open: false }" class="relative">
-                                        <button @click.stop="open = !open" class="px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 transition {{ $statusBadge }}">
+                                    <div x-data="floatingPanel({ width: 144, align: 'left', menuHeight: 280 })" class="relative" @keydown.escape.window="if (open) closePanel()" x-on:destroy="destroy()">
+                                        <button x-ref="trigger" @click.stop="togglePanel()" class="px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 transition {{ $statusBadge }}">
                                             <span>{{ $t->status->label() }}</span>
                                             <x-heroicon-m-chevron-down class="w-3 h-3 opacity-60"/>
                                         </button>
-                                        <div x-show="open" @click.outside="open = false" x-cloak class="absolute left-0 mt-1 z-50 w-36 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1 text-xs divide-y divide-gray-100 dark:divide-gray-700">
-                                            @foreach($workflowStates as $ws)
-                                            @continue(! $isManager && $t->mustPassReview() && in_array($ws->type, ['completed', 'closed'], true))
-                                            @php
-                                                $isReviewState = str_contains(strtolower((string) $ws->name), 'review');
-                                                $wsColor = $isReviewState
-                                                    ? 'text-purple-600 dark:text-purple-400'
-                                                    : match($ws->type) {
-                                                        'initial' => 'text-gray-700 dark:text-gray-200',
-                                                        'active' => 'text-blue-600 dark:text-blue-400',
-                                                        'completed' => 'text-emerald-600 dark:text-emerald-400',
-                                                        default => 'text-purple-600 dark:text-purple-400',
-                                                    };
-                                            @endphp
-                                            <button wire:click="moveTaskToState({{ $t->id }}, {{ $ws->id }})" @click="open = false" class="w-full px-3 py-1.5 text-left font-semibold {{ $wsColor }} hover:bg-gray-100 dark:hover:bg-gray-700">{{ $ws->name }}</button>
-                                            @endforeach
-                                        </div>
+                                        <template x-teleport="body">
+                                            <div x-show="open" @click.outside="onOutside($event)" x-cloak :style="panelStyle" class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1 text-xs divide-y divide-gray-100 dark:divide-gray-700">
+                                                @foreach($workflowStates as $ws)
+                                                @continue(! $isManager && $t->mustPassReview() && in_array($ws->type, ['completed', 'closed'], true))
+                                                @php
+                                                    $isReviewState = str_contains(strtolower((string) $ws->name), 'review');
+                                                    $wsColor = $isReviewState
+                                                        ? 'text-purple-600 dark:text-purple-400'
+                                                        : match($ws->type) {
+                                                            'initial' => 'text-gray-700 dark:text-gray-200',
+                                                            'active' => 'text-blue-600 dark:text-blue-400',
+                                                            'completed' => 'text-emerald-600 dark:text-emerald-400',
+                                                            default => 'text-purple-600 dark:text-purple-400',
+                                                        };
+                                                @endphp
+                                                <button wire:click="moveTaskToState({{ $t->id }}, {{ $ws->id }})" @click="closePanel()" class="w-full px-3 py-1.5 text-left font-semibold {{ $wsColor }} hover:bg-gray-100 dark:hover:bg-gray-700">{{ $ws->name }}</button>
+                                                @endforeach
+                                            </div>
+                                        </template>
                                     </div>
                                 </td>
                                 <td class="px-3 py-2.5">
                                     {{-- Inline Priority Selector --}}
-                                    <div x-data="{ open: false }" class="relative">
-                                        <button @click.stop="open = !open" class="px-1.5 py-0.5 rounded text-xs font-semibold flex items-center gap-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition" title="Change priority" aria-label="Change priority">
+                                    <div x-data="floatingPanel({ width: 128, align: 'left', menuHeight: 180 })" class="relative" @keydown.escape.window="if (open) closePanel()" x-on:destroy="destroy()">
+                                        <button x-ref="trigger" @click.stop="togglePanel()" class="px-1.5 py-0.5 rounded text-xs font-semibold flex items-center gap-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition" title="Change priority" aria-label="Change priority">
                                             <x-ui.priority-dot :priority="$t->priority?->value" with-label />
                                         </button>
-                                        <div x-show="open" @click.outside="open = false" x-cloak class="absolute left-0 mt-1 z-50 w-32 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1 text-xs">
-                                            <button type="button" wire:click="updateTaskPriority({{ $t->id }}, 'urgent')" @click="open = false" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="urgent" with-label /></button>
-                                            <button type="button" wire:click="updateTaskPriority({{ $t->id }}, 'high')" @click="open = false" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="high" with-label /></button>
-                                            <button type="button" wire:click="updateTaskPriority({{ $t->id }}, 'medium')" @click="open = false" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="medium" with-label /></button>
-                                            <button type="button" wire:click="updateTaskPriority({{ $t->id }}, 'low')" @click="open = false" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="low" with-label /></button>
-                                        </div>
+                                        <template x-teleport="body">
+                                            <div x-show="open" @click.outside="onOutside($event)" x-cloak :style="panelStyle" class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1 text-xs">
+                                                <button type="button" wire:click="updateTaskPriority({{ $t->id }}, 'urgent')" @click="closePanel()" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="urgent" with-label /></button>
+                                                <button type="button" wire:click="updateTaskPriority({{ $t->id }}, 'high')" @click="closePanel()" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="high" with-label /></button>
+                                                <button type="button" wire:click="updateTaskPriority({{ $t->id }}, 'medium')" @click="closePanel()" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="medium" with-label /></button>
+                                                <button type="button" wire:click="updateTaskPriority({{ $t->id }}, 'low')" @click="closePanel()" class="flex w-full items-center px-3 py-1.5 text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"><x-ui.priority-dot priority="low" with-label /></button>
+                                            </div>
+                                        </template>
                                     </div>
                                 </td>
                                 <td class="px-3 py-2.5 text-gray-600 dark:text-gray-400 font-medium">{{ $t->project?->name ?? 'General' }}</td>

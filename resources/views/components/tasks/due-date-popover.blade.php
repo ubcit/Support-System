@@ -20,19 +20,15 @@
             : 'Due date';
     }
 
-    $alignClass = match ($align) {
-        'left' => 'left-0',
-        'center' => 'left-1/2 -translate-x-1/2',
-        default => 'right-0',
-    };
-
     $resolvedUrgency = $urgency ?? ($overdue ? 'overdue' : ($value ? Task::urgencyForDueDate($value) : null));
     $triggerClass = Task::toneClassesForUrgency($resolvedUrgency, 'pill', (bool) $value);
+    $panelAlign = in_array($align, ['left', 'center', 'right'], true) ? $align : 'right';
 @endphp
 
 <div
     {{ $attributes->class($embedded ? 'shrink-0' : 'relative shrink-0') }}
     x-data="{
+        ...(@js((bool) $embedded) ? {} : createFloatingPanelState({ width: 280, align: @js($panelAlign), menuHeight: 380 })),
         open: @js((bool) $embedded),
         value: @js($value),
         wireAction: @js($wireAction),
@@ -49,6 +45,7 @@
                     this.$nextTick(() => this.mountCalendar());
                 } else {
                     this.destroyCalendar();
+                    this.unbindReposition?.();
                 }
             });
         },
@@ -79,7 +76,7 @@
             }
             this.$dispatch('due-date-selected', { date: next });
             if (! this.embedded) {
-                this.open = false;
+                this.closePanel();
             }
         },
         formatPreset(days) {
@@ -96,11 +93,16 @@
     x-on:click.stop
     x-on:dragstart.prevent.stop
     draggable="false"
+    @unless($embedded)
+        @keydown.escape.window="if (open) closePanel()"
+        x-on:destroy="destroy?.()"
+    @endunless
 >
     @unless($embedded)
         <button
             type="button"
-            @click.stop="open = !open"
+            x-ref="trigger"
+            @click.stop="togglePanel()"
             @mousedown.stop
             class="text-[10px] font-mono shrink-0 px-2 py-1 rounded-lg flex items-center gap-1 transition-all border {{ $triggerClass }}"
             title="{{ $value ? 'Due: '.\Illuminate\Support\Carbon::parse($value)->format('M d, Y') : 'Set due date' }}"
@@ -108,38 +110,62 @@
             <x-heroicon-o-calendar class="w-3.5 h-3.5 shrink-0 opacity-70"/>
             <span>{{ $display }}</span>
         </button>
-    @endunless
 
-    <div
-        x-show="open"
-        @unless($embedded)
-            @click.outside="open = false"
-            x-transition.opacity.duration.100ms
-        @endunless
-        x-cloak
-        @class([
-            'w-[280px] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden',
-            "absolute {$alignClass} mt-1 z-50" => ! $embedded,
-        ])
-    >
-        <div class="grid grid-cols-2 gap-1 p-2 border-b border-gray-100 dark:border-gray-700/80">
-            <button type="button" @click="pick(formatPreset(0))" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-yellow-700 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-500/10 text-left">
-                Today
-            </button>
-            <button type="button" @click="pick(formatPreset(1))" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-cyan-700 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 text-left">
-                Tomorrow
-            </button>
-            <button type="button" @click="pick(formatPreset(7))" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-gray-700 dark:text-gray-200 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 text-left">
-                Next week
-            </button>
-            @if($clearable)
-                <button type="button" @click="pick(null)" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 text-left">
-                    Clear
+        <template x-teleport="body">
+            <div
+                x-show="open"
+                @click.outside="onOutside($event)"
+                x-transition.opacity.duration.100ms
+                x-cloak
+                :style="panelStyle"
+                class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden"
+            >
+                <div class="grid grid-cols-2 gap-1 p-2 border-b border-gray-100 dark:border-gray-700/80">
+                    <button type="button" @click="pick(formatPreset(0))" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-yellow-700 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-500/10 text-left">
+                        Today
+                    </button>
+                    <button type="button" @click="pick(formatPreset(1))" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-cyan-700 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 text-left">
+                        Tomorrow
+                    </button>
+                    <button type="button" @click="pick(formatPreset(7))" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-gray-700 dark:text-gray-200 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 text-left">
+                        Next week
+                    </button>
+                    @if($clearable)
+                        <button type="button" @click="pick(null)" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 text-left">
+                            Clear
+                        </button>
+                    @endif
+                </div>
+                <div class="p-1 custom-datepicker due-date-popover-calendar" wire:ignore>
+                    <div x-ref="calendar"></div>
+                </div>
+            </div>
+        </template>
+    @else
+        <div
+            x-show="open"
+            x-cloak
+            class="w-[280px] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden"
+        >
+            <div class="grid grid-cols-2 gap-1 p-2 border-b border-gray-100 dark:border-gray-700/80">
+                <button type="button" @click="pick(formatPreset(0))" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-yellow-700 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-500/10 text-left">
+                    Today
                 </button>
-            @endif
+                <button type="button" @click="pick(formatPreset(1))" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-cyan-700 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 text-left">
+                    Tomorrow
+                </button>
+                <button type="button" @click="pick(formatPreset(7))" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-gray-700 dark:text-gray-200 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 text-left">
+                    Next week
+                </button>
+                @if($clearable)
+                    <button type="button" @click="pick(null)" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 text-left">
+                        Clear
+                    </button>
+                @endif
+            </div>
+            <div class="p-1 custom-datepicker due-date-popover-calendar" wire:ignore>
+                <div x-ref="calendar"></div>
+            </div>
         </div>
-        <div class="p-1 custom-datepicker due-date-popover-calendar" wire:ignore>
-            <div x-ref="calendar"></div>
-        </div>
-    </div>
+    @endunless
 </div>
