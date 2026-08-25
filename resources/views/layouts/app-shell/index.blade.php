@@ -210,12 +210,23 @@
             class="relative p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6"
             x-data="{
                 navigating: false,
+                _navTimer: null,
                 init() {
-                    const on = () => { this.navigating = true };
-                    const off = () => { this.navigating = false };
+                    const on = () => {
+                        this.navigating = true;
+                        clearTimeout(this._navTimer);
+                        // Safety: never leave the overlay stuck if navigated is missed.
+                        this._navTimer = setTimeout(() => { this.navigating = false }, 8000);
+                    };
+                    const off = () => {
+                        this.navigating = false;
+                        clearTimeout(this._navTimer);
+                        this._navTimer = null;
+                    };
                     document.addEventListener('livewire:navigate', on);
                     document.addEventListener('livewire:navigated', off);
                     document.addEventListener('livewire:navigate-error', off);
+                    document.addEventListener('alpine:navigated', off);
                 },
             }"
         >
