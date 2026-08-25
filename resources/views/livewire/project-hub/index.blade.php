@@ -15,7 +15,8 @@
         </x-slot:actions>
     </x-common.page-breadcrumb>
 
-    <div class="space-y-6">
+    <div class="relative space-y-6">
+        <x-ui.content-loading />
         @if($selected_project)
             <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl ring-1 ring-gray-950/5 dark:ring-white/10 space-y-4 shadow-sm">
                 <div class="flex justify-between items-start">

@@ -22,7 +22,8 @@
 
 
     {{-- All Media --}}
-    <div class="mb-6">
+    <div class="relative mb-6">
+        <x-ui.content-loading />
         <div class="mb-4 flex items-center justify-between gap-3">
             <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">All Media</h3>
             <button

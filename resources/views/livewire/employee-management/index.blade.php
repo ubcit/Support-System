@@ -9,7 +9,8 @@
             @endif
         </x-slot:actions>
     </x-common.page-breadcrumb>
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="relative grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <x-ui.content-loading />
         <!-- Employee Directory List -->
         <div class="space-y-3 lg:col-span-1">
             <div class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 flex justify-between items-center">

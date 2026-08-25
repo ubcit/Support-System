@@ -19,6 +19,9 @@ class DailyDigestMail extends Mailable
         public array $stats,
         public Collection $overdueTasks,
         public Collection $upcomingDeadlines,
+        public Collection $openTasks,
+        public Collection $openIssues,
+        public Collection $dueSoonTasks,
     ) {}
 
     public function envelope(): Envelope

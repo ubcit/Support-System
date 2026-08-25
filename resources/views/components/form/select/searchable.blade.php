@@ -46,6 +46,36 @@
         selected: @if($isLive) @entangle($wireModel).live @else @entangle($wireModel) @endif,
         dropdownStyle: {},
         _reposition: null,
+        _visibilityObserver: null,
+        _form: null,
+        _onFormSubmit: null,
+        init() {
+            this._visibilityObserver = new IntersectionObserver((entries) => {
+                for (const entry of entries) {
+                    if (!entry.isIntersecting && this.open) {
+                        this.closeDropdown();
+                    }
+                }
+            });
+            this._onFormSubmit = () => {
+                if (this.open) this.closeDropdown();
+            };
+            this.$nextTick(() => {
+                if (this.$refs.trigger) {
+                    this._visibilityObserver.observe(this.$refs.trigger);
+                }
+                this._form = this.$el.closest('form');
+                this._form?.addEventListener('submit', this._onFormSubmit);
+            });
+        },
+        destroy() {
+            this.closeDropdown();
+            this._form?.removeEventListener('submit', this._onFormSubmit);
+            this._form = null;
+            this._onFormSubmit = null;
+            this._visibilityObserver?.disconnect();
+            this._visibilityObserver = null;
+        },
         get filtered() {
             const q = this.search.trim().toLowerCase();
             if (!q) return this.options;
@@ -112,6 +142,11 @@
             const btn = this.$refs.trigger;
             if (!btn) return;
             const r = btn.getBoundingClientRect();
+            // Parent modal may hide via x-show while this panel stays teleported to body.
+            if (r.width === 0 && r.height === 0) {
+                this.closeDropdown();
+                return;
+            }
             const menuHeight = 260;
             const gap = 6;
             const spaceBelow = window.innerHeight - r.bottom;
@@ -155,6 +190,7 @@
             this.closeDropdown();
         },
     }"
+    x-on:destroy="destroy()"
     @keydown.escape.window="closeDropdown()"
 >
     @if ($label)

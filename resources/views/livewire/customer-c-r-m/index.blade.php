@@ -7,7 +7,8 @@
             </x-ui.button>
         </x-slot:actions>
     </x-common.page-breadcrumb>
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+    <div class="relative grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <x-ui.content-loading />
         <div class="space-y-4 lg:col-span-1">
             <div class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 flex justify-between items-center shadow-xs">
                 <h3 class="font-bold text-sm text-gray-900 dark:text-white">CRM Customers</h3>

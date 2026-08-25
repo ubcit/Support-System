@@ -206,7 +206,33 @@
     >
         @include('layouts.app-shell.topbar')
 
-        <main class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+        <main
+            class="relative p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6"
+            x-data="{
+                navigating: false,
+                init() {
+                    const on = () => { this.navigating = true };
+                    const off = () => { this.navigating = false };
+                    document.addEventListener('livewire:navigate', on);
+                    document.addEventListener('livewire:navigated', off);
+                    document.addEventListener('livewire:navigate-error', off);
+                },
+            }"
+        >
+            <div
+                x-show="navigating"
+                x-cloak
+                x-transition.opacity.duration.150ms
+                class="absolute inset-0 z-30 flex items-start justify-center bg-white/50 pt-24 backdrop-blur-[1px] dark:bg-gray-950/40 md:pt-32"
+                aria-busy="true"
+                aria-live="polite"
+            >
+                <div
+                    class="h-10 w-10 animate-spin rounded-full border-4 border-solid border-brand-500 border-t-transparent"
+                    role="status"
+                    aria-label="Loading"
+                ></div>
+            </div>
             {{ $slot }}
         </main>
     </div>

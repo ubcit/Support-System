@@ -22,7 +22,8 @@
         <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800 dark:border-red-800/40 dark:bg-red-950/40 dark:text-red-300">{{ session('error') }}</div>
     @endif
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-140px)] min-h-[600px]">
+    <div class="relative grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-140px)] min-h-[600px]">
+        <x-ui.content-loading target="setFilter,selectConversation,selectCustomer,clearSessionSelection,clearCustomerSelection,searchQuery,selectedSessionId" />
         <!-- Chat Thread -->
         <div class="lg:col-span-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-white/10 flex flex-col overflow-hidden shadow-sm">
             @if($selected_session)

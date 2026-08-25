@@ -67,13 +67,11 @@ class EmailNotificationService
         $employees = $this->getNotifiableEmployees();
 
         foreach ($employees as $employee) {
-            $dueSoonTasks = Task::query()
-                ->whereHas('assignees', fn ($q) => $q->where('employees.id', $employee->id))
+            $dueSoonTasks = $this->openTasksQueryForEmployee($employee)
                 ->whereNotNull('due_date')
                 ->whereBetween('due_date', [now(), now()->addDay()])
-                ->whereNull('completed_at')
-                ->whereHas('currentState', fn ($q) => $q->whereNotIn('type', ['completed', 'cancelled']))
                 ->with('project')
+                ->orderBy('due_date')
                 ->get();
 
             if ($dueSoonTasks->isEmpty()) {
@@ -131,51 +129,85 @@ class EmailNotificationService
     public function sendDailyDigests(): int
     {
         $sent = 0;
+        $listLimit = 10;
 
         $employees = $this->getNotifiableEmployees();
 
         foreach ($employees as $employee) {
+            if (! $this->shouldNotify($employee, 'daily_digest')) {
+                continue;
+            }
+
+            $openTasksCount = $this->openTasksQueryForEmployee($employee)->count();
+
             $overdueTasks = $this->getOverdueTasksForEmployee($employee);
 
-            $openTasks = Task::query()
-                ->whereHas('assignees', fn ($q) => $q->where('employees.id', $employee->id))
-                ->whereNull('completed_at')
-                ->whereHas('currentState', fn ($q) => $q->whereNotIn('type', ['completed', 'cancelled']))
-                ->count();
-
-            $dueSoonCount = Task::query()
-                ->whereHas('assignees', fn ($q) => $q->where('employees.id', $employee->id))
+            $dueSoonQuery = $this->openTasksQueryForEmployee($employee)
                 ->whereNotNull('due_date')
-                ->whereBetween('due_date', [now(), now()->addDay()])
-                ->whereNull('completed_at')
-                ->count();
+                ->whereBetween('due_date', [now(), now()->addDay()]);
 
-            $openIssues = Issue::query()
-                ->where('assigned_to', $employee->id)
-                ->whereNotIn('status', ['resolved', 'closed'])
-                ->count();
+            $dueSoonCount = (clone $dueSoonQuery)->count();
+            $dueSoonTasks = (clone $dueSoonQuery)
+                ->with('project')
+                ->orderBy('due_date')
+                ->limit($listLimit)
+                ->get();
+
+            $openIssuesQuery = $this->openIssuesQueryForEmployee($employee);
+            $openIssuesCount = (clone $openIssuesQuery)->count();
+            $openIssues = (clone $openIssuesQuery)
+                ->with('project')
+                ->orderByRaw("CASE priority WHEN 'critical' THEN 0 WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END")
+                ->orderByRaw('due_date IS NULL')
+                ->orderBy('due_date')
+                ->orderByDesc('created_at')
+                ->limit($listLimit)
+                ->get();
+
+            $openTasks = $this->openTasksQueryForEmployee($employee)
+                ->with(['project', 'currentState'])
+                ->orderByRaw('due_date IS NULL')
+                ->orderBy('due_date')
+                ->orderByRaw("CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END")
+                ->limit($listLimit)
+                ->get();
 
             $upcomingDeadlines = Project::query()
                 ->whereHas('employees', fn ($q) => $q->where('employees.id', $employee->id))
                 ->whereNotNull('deadline_at')
                 ->whereBetween('deadline_at', [now(), now()->addWeek()])
                 ->whereNotIn('status', ['completed', 'cancelled', 'archived'])
+                ->orderBy('deadline_at')
                 ->get();
 
-            if ($openTasks === 0 && $overdueTasks->isEmpty() && $openIssues === 0 && $upcomingDeadlines->isEmpty()) {
+            if (
+                $openTasksCount === 0
+                && $overdueTasks->isEmpty()
+                && $openIssuesCount === 0
+                && $upcomingDeadlines->isEmpty()
+            ) {
                 continue;
             }
 
             $stats = [
-                'open_tasks' => $openTasks,
+                'open_tasks' => $openTasksCount,
                 'overdue_tasks' => $overdueTasks->count(),
                 'due_soon' => $dueSoonCount,
-                'open_issues' => $openIssues,
+                'open_issues' => $openIssuesCount,
+                'list_limit' => $listLimit,
             ];
 
             $this->sendAndLog(
                 $employee,
-                new DailyDigestMail($employee, $stats, $overdueTasks, $upcomingDeadlines),
+                new DailyDigestMail(
+                    $employee,
+                    $stats,
+                    $overdueTasks,
+                    $upcomingDeadlines,
+                    $openTasks,
+                    $openIssues,
+                    $dueSoonTasks,
+                ),
                 'daily_digest',
                 'Daily digest',
             );
@@ -434,14 +466,29 @@ class EmailNotificationService
         }
     }
 
-    protected function getOverdueTasksForEmployee(Employee $employee): Collection
+    protected function openTasksQueryForEmployee(Employee $employee)
     {
         return Task::query()
             ->whereHas('assignees', fn ($q) => $q->where('employees.id', $employee->id))
+            ->whereNull('archived_at')
+            ->whereNull('completed_at')
+            ->whereHas('currentState', fn ($q) => $q->whereNotIn('type', ['completed', 'cancelled']));
+    }
+
+    protected function openIssuesQueryForEmployee(Employee $employee)
+    {
+        return Issue::query()
+            ->where('assigned_to', $employee->id)
+            ->whereNull('resolved_at')
+            ->whereNull('closed_at')
+            ->whereNotIn('status', ['resolved', 'closed']);
+    }
+
+    protected function getOverdueTasksForEmployee(Employee $employee): Collection
+    {
+        return $this->openTasksQueryForEmployee($employee)
             ->whereNotNull('due_date')
             ->where('due_date', '<', now()->startOfDay())
-            ->whereNull('completed_at')
-            ->whereHas('currentState', fn ($q) => $q->whereNotIn('type', ['completed', 'cancelled']))
             ->with('project')
             ->orderBy('due_date')
             ->get();

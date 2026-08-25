@@ -138,7 +138,7 @@ class TaskNavigationTest extends TestCase
             ->assertOk()
             ->assertSee('Open me in a panel')
             ->assertSee($detailUrl, false)
-            ->assertSee('wire:click.stop="openEditModal('.$task->id.')"', false)
+            ->assertSee('@click.stop="$wire.showEditModal = true; $wire.openEditModal('.$task->id.')"', false)
             ->assertSee('Edit task')
             ->assertSee('The list stays open');
 

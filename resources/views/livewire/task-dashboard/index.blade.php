@@ -45,10 +45,34 @@
                 </div>
 
                 @if($isManager)
-                <div class="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800">
-                    <button wire:click="$set('filterReview', '')" class="rounded-lg px-2.5 py-1.5 text-[11px] font-bold {{ $filterReview === '' ? 'bg-white shadow-sm text-gray-900 dark:bg-gray-700 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400' }}">All</button>
-                    <button wire:click="$set('filterReview', 'review')" class="rounded-lg px-2.5 py-1.5 text-[11px] font-bold {{ $filterReview === 'review' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400' }}">Review Queue</button>
-                    <button wire:click="$set('filterReview', 'done_recent')" class="rounded-lg px-2.5 py-1.5 text-[11px] font-bold {{ $filterReview === 'done_recent' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400' }}">Recently Done</button>
+                <div
+                    x-data="{ queue: $wire.entangle('filterReview').live }"
+                    class="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800"
+                >
+                    <button
+                        type="button"
+                        @click="queue = ''"
+                        :class="queue === ''
+                            ? 'bg-white shadow-sm text-gray-900 dark:bg-gray-700 dark:text-white'
+                            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'"
+                        class="rounded-lg px-2.5 py-1.5 text-[11px] font-bold"
+                    >All</button>
+                    <button
+                        type="button"
+                        @click="queue = 'review'"
+                        :class="queue === 'review'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'"
+                        class="rounded-lg px-2.5 py-1.5 text-[11px] font-bold"
+                    >Review Queue</button>
+                    <button
+                        type="button"
+                        @click="queue = 'done_recent'"
+                        :class="queue === 'done_recent'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'"
+                        class="rounded-lg px-2.5 py-1.5 text-[11px] font-bold"
+                    >Recently Done</button>
                 </div>
                 @endif
 
@@ -73,6 +97,8 @@
         {{-- ═══════════════════════════════════════════════════════════════ --}}
         {{-- VIEWS                                                          --}}
         {{-- ═══════════════════════════════════════════════════════════════ --}}
+        <div class="relative min-h-[12rem]">
+        <x-ui.content-loading target="filterReview,searchQuery,groupBy,filterTag,clearFilter,loadMore,filterProject,filterPriority,filterAssignee,filterStatus,filterDue,scope,showCompleted,showTrashed,setSortBy,prevMonth,nextMonth" />
 
         @if($currentView === 'list')
             {{-- ─────────── CLICKUP GROUPED LIST VIEW ─────────── --}}
@@ -386,7 +412,7 @@
                                                 </x-ui.confirm-button>
                                                 @endif
                                             @else
-                                            <button type="button" wire:click.stop="openEditModal({{ $task->id }})" class="p-1 rounded text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition" title="Edit task" aria-label="Edit task">
+                                            <button type="button" @click.stop="$wire.showEditModal = true; $wire.openEditModal({{ $task->id }})" class="p-1 rounded text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition" title="Edit task" aria-label="Edit task">
                                                 <x-heroicon-m-pencil-square class="w-3.5 h-3.5"/>
                                             </button>
                                             @if($canDelete)
@@ -441,7 +467,7 @@
                                                 </span>
                                             @endif
                                             <button type="button"
-                                                    wire:click.stop="openEditModal({{ $sub->id }})"
+                                                    @click.stop="$wire.showEditModal = true; $wire.openEditModal({{ $sub->id }})"
                                                     class="p-0.5 rounded text-gray-400 opacity-0 group-hover/sub:opacity-100 hover:text-brand-600 transition shrink-0"
                                                     title="Edit subtask"
                                                     aria-label="Edit subtask">
@@ -591,7 +617,7 @@
                                                 <a href="{{ \App\Helpers\TaskNav::detailUrl($task->id) }}" wire:navigate @click.stop class="hover:text-brand-600 dark:hover:text-brand-400 text-left">{{ $task->title }}</a>
                                             </h4>
                                         </div>
-                                        <button type="button" wire:click.stop="openEditModal({{ $task->id }})" @click.stop class="p-1 rounded text-gray-400 opacity-0 group-hover:opacity-100 hover:text-brand-500 transition" title="Edit task" aria-label="Edit task">
+                                        <button type="button" @click.stop="$wire.showEditModal = true; $wire.openEditModal({{ $task->id }})" class="p-1 rounded text-gray-400 opacity-0 group-hover:opacity-100 hover:text-brand-500 transition" title="Edit task" aria-label="Edit task">
                                             <x-heroicon-m-pencil-square class="w-3.5 h-3.5"/>
                                         </button>
                                     </div>
@@ -861,7 +887,7 @@
                                             <button type="button" wire:click="approveTask({{ $t->id }})" class="px-2 py-1 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700">Approve &amp; done</button>
                                             <button type="button" @click="$wire.showReviewModal = true; $wire.openReviewModal({{ $t->id }})" class="px-2 py-1 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">Changes</button>
                                         @endif
-                                        <button type="button" wire:click.stop="openEditModal({{ $t->id }})" class="p-1 rounded text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition {{ $isManager && $t->statusKey() === 'code_review' ? '' : 'opacity-0 group-hover:opacity-100' }}" title="Edit task" aria-label="Edit task">
+                                        <button type="button" @click.stop="$wire.showEditModal = true; $wire.openEditModal({{ $t->id }})" class="p-1 rounded text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition {{ $isManager && $t->statusKey() === 'code_review' ? '' : 'opacity-0 group-hover:opacity-100' }}" title="Edit task" aria-label="Edit task">
                                             <x-heroicon-m-pencil-square class="w-3.5 h-3.5"/>
                                         </button>
                                         @if($canDelete)
@@ -1040,6 +1066,7 @@
                 </button>
             </div>
         @endif
+        </div>
 
         {{-- ═══════════════════════════════════════════════════════════════ --}}
         {{-- FLOATING CLICKUP MULTITASK TOOLBAR                             --}}
