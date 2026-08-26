@@ -133,3 +133,18 @@ Route::middleware(['auth', 'workspace'])->prefix('workspace')->name('workspace.'
     Route::get('/tasks/{record}', App\Livewire\TaskDetail\Index::class)->name('task-detail');
     Route::get('/profile', ProfileIndex::class)->name('profile');
 });
+
+Route::get('/clear-cache', function () {
+    Artisan::call('cache:clear');
+    Artisan::call('config:clear');
+    Artisan::call('route:clear');
+    Artisan::call('view:clear');
+    Artisan::call('optimize:clear');
+    return 'Cache cleared';
+});
+
+Route::get('/storage-link', function () {
+    Artisan::call('storage:link');
+    return 'Storage linked';
+});
+
