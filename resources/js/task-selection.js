@@ -21,7 +21,7 @@ function createTaskSelStore() {
 
             return selected > 0 && selected < list.length;
         },
-        toggle(id, wire) {
+        toggle(id) {
             id = Number(id);
             const set = new Set(this.selectedIds);
             if (set.has(id)) {
@@ -29,13 +29,12 @@ function createTaskSelStore() {
             } else {
                 set.add(id);
             }
-            // New array reference so every :checked binding re-evaluates immediately.
             this.selectedIds = Array.from(set);
-            this.sync(wire);
+            this.syncSilent();
 
             return this.isSelected(id);
         },
-        toggleAll(ids, wire) {
+        toggleAll(ids) {
             const list = (ids || []).map(Number);
             const set = new Set(this.selectedIds);
             if (this.allSelected(list)) {
@@ -44,29 +43,42 @@ function createTaskSelStore() {
                 list.forEach((id) => set.add(id));
             }
             this.selectedIds = Array.from(set);
-            this.sync(wire);
+            this.syncSilent();
 
             return this.allSelected(list);
         },
-        clear(wire) {
+        clear() {
             this.selectedIds = [];
-            this.sync(wire);
+            this.syncSilent();
         },
-        sync(wire) {
+        /**
+         * Push selection into Livewire without a network round-trip / morph,
+         * so checkboxes stay Alpine-driven until a bulk action runs.
+         */
+        syncSilent(wire) {
             const ids = [...this.selectedIds];
-            if (wire && typeof wire.set === 'function') {
-                wire.set('selectedTasks', ids);
+            const target = wire || this.resolveWire();
+            if (target && typeof target.set === 'function') {
+                // Third arg false = update snapshot only, no re-render.
+                target.set('selectedTasks', ids, false);
 
                 return;
             }
+            if (target && typeof target.$set === 'function') {
+                target.$set('selectedTasks', ids, false);
+            }
+        },
+        resolveWire() {
             const el = document.querySelector('[data-task-dashboard]');
             if (!el || !window.Livewire) {
-                return;
+                return null;
             }
-            const component = window.Livewire.find(el.getAttribute('wire:id'));
-            if (component && typeof component.$set === 'function') {
-                component.$set('selectedTasks', ids);
-            }
+
+            return window.Livewire.find(el.getAttribute('wire:id'));
+        },
+        // Back-compat alias used by toolbar
+        sync(wire) {
+            this.syncSilent(wire);
         },
     };
 }
@@ -77,4 +89,10 @@ document.addEventListener('alpine:init', () => {
     }
     window.__taskSelStoreDefined = true;
     window.Alpine.store('taskSel', createTaskSelStore());
+});
+
+document.addEventListener('livewire:init', () => {
+    Livewire.on('task-selection-cleared', () => {
+        window.Alpine?.store('taskSel')?.hydrate([]);
+    });
 });

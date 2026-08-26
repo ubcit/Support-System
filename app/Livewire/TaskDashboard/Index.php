@@ -206,6 +206,7 @@ class Index extends Component
     public function clearSelection(): void
     {
         $this->selectedTasks = [];
+        $this->dispatch('task-selection-cleared');
     }
 
     protected function actor(): ?Employee
@@ -430,6 +431,7 @@ class Index extends Component
         $this->selectedTasks = [];
         if ($blockedCount > 0 && $updatedCount === 0) {
             session()->flash('error', 'Those tasks need manager approval before they can be marked done.');
+            $this->dispatch('task-selection-cleared');
 
             return;
         }
@@ -438,6 +440,7 @@ class Index extends Component
             $blockedCount > 0 ? 'error' : 'success',
             $updatedCount.' tasks status updated.'.($blockedCount > 0 ? " {$blockedCount} still need approval." : '')
         );
+        $this->dispatch('task-selection-cleared');
     }
 
     public function bulkUpdatePriority(string $priority): void
@@ -450,6 +453,7 @@ class Index extends Component
         app(NativeTaskService::class)->bulkUpdatePriority($this->selectedTasks, $priority, $this->actor());
         $this->selectedTasks = [];
         session()->flash('success', $count.' tasks priority updated.');
+        $this->dispatch('task-selection-cleared');
     }
 
     public function bulkAssign(?int $employeeId): void
@@ -462,6 +466,7 @@ class Index extends Component
         app(NativeTaskService::class)->bulkUpdateAssignee($this->selectedTasks, $employeeId, $this->actor());
         $this->selectedTasks = [];
         session()->flash('success', $count.' tasks assignee updated.');
+        $this->dispatch('task-selection-cleared');
     }
 
     public function bulkUpdateDueDate(?string $dueDate): void
@@ -474,6 +479,7 @@ class Index extends Component
         app(NativeTaskService::class)->bulkUpdateDueDate($this->selectedTasks, $dueDate, $this->actor());
         $this->selectedTasks = [];
         session()->flash('success', $count.' tasks due date updated.');
+        $this->dispatch('task-selection-cleared');
     }
 
     public function bulkDelete(): void
@@ -488,6 +494,7 @@ class Index extends Component
 
         $this->selectedTasks = [];
         session()->flash('success', "{$count} tasks moved to trash.");
+        $this->dispatch('task-selection-cleared');
     }
 
     public function bulkRestore(): void
@@ -502,6 +509,7 @@ class Index extends Component
 
         $this->selectedTasks = [];
         session()->flash('success', "{$count} tasks restored.");
+        $this->dispatch('task-selection-cleared');
     }
 
     public function bulkForceDelete(): void
@@ -520,6 +528,7 @@ class Index extends Component
 
         $this->selectedTasks = [];
         session()->flash('success', "{$count} tasks permanently deleted.");
+        $this->dispatch('task-selection-cleared');
     }
 
     // Create / Edit task modals

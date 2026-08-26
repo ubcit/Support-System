@@ -5,7 +5,8 @@
         if ($store.taskSel) {
             $store.taskSel.hydrate(@js(array_values(array_map('intval', $selectedTasks))));
         }
-     ">
+     "
+     @task-selection-cleared.window="$store.taskSel && $store.taskSel.hydrate([])">
     <x-common.page-breadcrumb pageTitle="My Tasks" compact>
         <x-slot:subtitle>{{ $filterSubtitle }}</x-slot:subtitle>
         <x-slot:actions>
@@ -177,14 +178,9 @@
                             <div class="flex items-center gap-2.5">
                                 {{-- Checkbox to Select All in Group --}}
                                 <input type="checkbox"
-                                       wire:ignore
-                                       @click.stop.prevent="
-                                            const on = $store.taskSel.toggleAll({{ \Illuminate\Support\Js::from($groupTaskIds) }}, $wire);
-                                            $el.checked = on;
-                                            $el.indeterminate = false;
-                                       "
+                                       @click.stop.prevent="$store.taskSel.toggleAll({{ \Illuminate\Support\Js::from($groupTaskIds) }})"
                                        :checked="$store.taskSel.allSelected({{ \Illuminate\Support\Js::from($groupTaskIds) }})"
-                                       :indeterminate="$store.taskSel.someSelected({{ \Illuminate\Support\Js::from($groupTaskIds) }})"
+                                       x-effect="$el.indeterminate = $store.taskSel.someSelected({{ \Illuminate\Support\Js::from($groupTaskIds) }})"
                                        class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer">
 
                                 <button @click="collapsed = !collapsed" class="flex items-center gap-2 text-left">
@@ -260,10 +256,7 @@
 
                                         {{-- Checkbox --}}
                                         <input type="checkbox"
-                                               wire:ignore
-                                               @click.stop.prevent="
-                                                    $el.checked = $store.taskSel.toggle({{ $task->id }}, $wire);
-                                               "
+                                               @click.stop.prevent="$store.taskSel.toggle({{ $task->id }})"
                                                :checked="$store.taskSel.isSelected({{ $task->id }})"
                                                class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer shrink-0">
 
@@ -698,10 +691,7 @@
                                     <div class="flex justify-between items-start gap-2">
                                         <div class="flex items-start gap-2 flex-1 min-w-0">
                                             <input type="checkbox"
-                                                   wire:ignore
-                                                   @click.stop.prevent="
-                                                        $el.checked = $store.taskSel.toggle({{ $task->id }}, $wire);
-                                                   "
+                                                   @click.stop.prevent="$store.taskSel.toggle({{ $task->id }})"
                                                    :checked="$store.taskSel.isSelected({{ $task->id }})"
                                                    class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer shrink-0 mt-0.5">
                                             <h4 class="text-xs font-semibold text-gray-900 dark:text-white leading-snug line-clamp-2 break-words">
@@ -861,14 +851,9 @@
                         <tr class="bg-gray-50 dark:bg-gray-800">
                             <th class="px-3 py-2.5 w-8 text-center text-gray-500 dark:text-gray-400">
                                 <input type="checkbox"
-                                       wire:ignore
-                                       @click.stop.prevent="
-                                            const on = $store.taskSel.toggleAll({{ \Illuminate\Support\Js::from($allTaskIds) }}, $wire);
-                                            $el.checked = on;
-                                            $el.indeterminate = false;
-                                       "
+                                       @click.stop.prevent="$store.taskSel.toggleAll({{ \Illuminate\Support\Js::from($allTaskIds) }})"
                                        :checked="$store.taskSel.allSelected({{ \Illuminate\Support\Js::from($allTaskIds) }})"
-                                       :indeterminate="$store.taskSel.someSelected({{ \Illuminate\Support\Js::from($allTaskIds) }})"
+                                       x-effect="$el.indeterminate = $store.taskSel.someSelected({{ \Illuminate\Support\Js::from($allTaskIds) }})"
                                        class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer">
                             </th>
                             @foreach([
@@ -917,10 +902,7 @@
                                 :class="$store.taskSel.isSelected({{ $t->id }}) ? 'bg-brand-50/40 dark:bg-brand-950/20' : ''">
                                 <td class="px-3 py-2.5 text-center">
                                     <input type="checkbox"
-                                           wire:ignore
-                                           @click.stop.prevent="
-                                                $el.checked = $store.taskSel.toggle({{ $t->id }}, $wire);
-                                           "
+                                           @click.stop.prevent="$store.taskSel.toggle({{ $t->id }})"
                                            :checked="$store.taskSel.isSelected({{ $t->id }})"
                                            class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer">
                                 </td>
@@ -1359,7 +1341,7 @@
 
                     {{-- Deselect All Button --}}
                     <button type="button"
-                            @click="$store.taskSel.clear($wire)"
+                            @click="$store.taskSel.clear()"
                             class="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 text-gray-400 hover:text-gray-900 dark:hover:text-white transition"
                             title="Clear selection"
                             aria-label="Clear selection">
@@ -1538,49 +1520,60 @@
                             const selected = list.filter((id) => this.selectedIds.includes(id)).length;
                             return selected > 0 && selected < list.length;
                         },
-                        toggle(id, wire) {
+                        toggle(id) {
                             id = Number(id);
                             const set = new Set(this.selectedIds);
                             if (set.has(id)) set.delete(id);
                             else set.add(id);
                             this.selectedIds = Array.from(set);
-                            this.sync(wire);
+                            this.syncSilent();
                             return this.isSelected(id);
                         },
-                        toggleAll(ids, wire) {
+                        toggleAll(ids) {
                             const list = (ids || []).map(Number);
                             const set = new Set(this.selectedIds);
-                            if (this.allSelected(list)) {
-                                list.forEach((id) => set.delete(id));
-                            } else {
-                                list.forEach((id) => set.add(id));
-                            }
+                            if (this.allSelected(list)) list.forEach((id) => set.delete(id));
+                            else list.forEach((id) => set.add(id));
                             this.selectedIds = Array.from(set);
-                            this.sync(wire);
+                            this.syncSilent();
                             return this.allSelected(list);
                         },
-                        clear(wire) {
+                        clear() {
                             this.selectedIds = [];
-                            this.sync(wire);
+                            this.syncSilent();
                         },
-                        sync(wire) {
+                        syncSilent(wire) {
                             const ids = [...this.selectedIds];
-                            if (wire && typeof wire.set === 'function') {
-                                wire.set('selectedTasks', ids);
+                            const target = wire || this.resolveWire();
+                            if (target && typeof target.set === 'function') {
+                                target.set('selectedTasks', ids, false);
                                 return;
                             }
-                            const el = document.querySelector('[data-task-dashboard]');
-                            if (!el || !window.Livewire) return;
-                            const component = window.Livewire.find(el.getAttribute('wire:id'));
-                            if (component && typeof component.$set === 'function') {
-                                component.$set('selectedTasks', ids);
+                            if (target && typeof target.$set === 'function') {
+                                target.$set('selectedTasks', ids, false);
                             }
+                        },
+                        resolveWire() {
+                            const el = document.querySelector('[data-task-dashboard]');
+                            if (!el || !window.Livewire) return null;
+                            return window.Livewire.find(el.getAttribute('wire:id'));
+                        },
+                        sync(wire) {
+                            this.syncSilent(wire);
                         },
                     });
                 };
                 document.addEventListener('alpine:init', defineStore);
                 defineStore();
             })();
+
+            document.addEventListener('livewire:init', () => {
+                if (window.__taskSelClearedHooked) return;
+                window.__taskSelClearedHooked = true;
+                Livewire.on('task-selection-cleared', () => {
+                    window.Alpine?.store('taskSel')?.hydrate([]);
+                });
+            });
 
             window.__pendingOptimisticCreates = 0;
             window.__optimisticCreateEntries = window.__optimisticCreateEntries || new Map();
