@@ -49,9 +49,30 @@
                 }
             });
         },
+        calendarHostAlive() {
+            const host = this.$refs.calendar;
+            return !! host && host.isConnected;
+        },
+        isCalendarAlive() {
+            if (! this.fp) return false;
+            if (! this.calendarHostAlive()) return false;
+            const input = this.fp.input || this.fp._input;
+            return ! input || input.isConnected;
+        },
         mountCalendar() {
-            if (this.fp || ! this.$refs.calendar || typeof flatpickr === 'undefined') return;
-            this.fp = flatpickr(this.$refs.calendar, {
+            if (typeof flatpickr === 'undefined') return;
+            if (! this.calendarHostAlive()) return;
+            if (this.isCalendarAlive()) return;
+
+            this.destroyCalendar();
+
+            const host = this.$refs.calendar;
+            // Orphaned instance left on host after morph / Alpine remount.
+            if (host._flatpickr) {
+                try { host._flatpickr.destroy(); } catch (e) {}
+            }
+
+            this.fp = flatpickr(host, {
                 inline: true,
                 static: true,
                 monthSelectorType: 'static',
@@ -64,8 +85,14 @@
         },
         destroyCalendar() {
             if (this.fp) {
-                this.fp.destroy();
+                try {
+                    this.fp.destroy();
+                } catch (e) {}
                 this.fp = null;
+            }
+            const host = this.$refs.calendar;
+            if (host?._flatpickr) {
+                try { host._flatpickr.destroy(); } catch (e) {}
             }
         },
         async pick(dateStr) {
@@ -88,6 +115,13 @@
             const day = String(d.getDate()).padStart(2, '0');
             return `${y}-${m}-${day}`;
         },
+        teardown() {
+            this.destroyCalendar();
+            this.destroy?.();
+            if (this.open && ! this.embedded) {
+                this.open = false;
+            }
+        },
     }"
     x-on:mousedown.stop
     x-on:click.stop
@@ -95,7 +129,9 @@
     draggable="false"
     @unless($embedded)
         @keydown.escape.window="if (open) closePanel()"
-        x-on:destroy="destroy?.()"
+        x-on:destroy="teardown()"
+    @else
+        x-on:destroy="destroyCalendar()"
     @endunless
 >
     @unless($embedded)

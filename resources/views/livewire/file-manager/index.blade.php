@@ -277,10 +277,13 @@
             </div>
         </form>
         <x-slot:footer>
-            <button type="button" wire:click="closeUploadModal" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
+            <button type="button" @click="open = false; $wire.closeUploadModal()" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
             <button type="submit" form="modal-upload-file" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600" wire:loading.attr="disabled">
                 <span wire:loading.remove wire:target="uploadFile">Upload</span>
-                <span wire:loading wire:target="uploadFile">Saving...</span>
+                <span wire:loading wire:target="uploadFile" class="inline-flex items-center gap-1.5">
+                    <x-ui.spinner size="sm" />
+                    Uploading…
+                </span>
             </button>
         </x-slot:footer>
     </x-ui.slide-form-modal>

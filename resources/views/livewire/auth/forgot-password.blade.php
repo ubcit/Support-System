@@ -32,7 +32,10 @@
                     <button type="submit" wire:loading.attr="disabled"
                         class="bg-brand-500 shadow-theme-xs hover:bg-brand-600 flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-white transition disabled:opacity-60">
                         <span wire:loading.remove wire:target="sendResetLink">Send Reset Link</span>
-                        <span wire:loading wire:target="sendResetLink">Sending…</span>
+                        <span wire:loading wire:target="sendResetLink" class="inline-flex items-center gap-1.5">
+                            <x-ui.spinner size="sm" />
+                            Sending…
+                        </span>
                     </button>
                 </form>
             </div>

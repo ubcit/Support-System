@@ -23,6 +23,8 @@ class Drive extends Component
 
     public ?string $selectedUuid = null;
 
+    public bool $showPreview = false;
+
     public function updatingSearch(): void
     {
         $this->resetPage();
@@ -39,14 +41,19 @@ class Drive extends Component
         $attachment = $service->findByUuid($uuid);
 
         if (! $this->isPreviewable($attachment)) {
+            $this->showPreview = false;
+            $this->selectedUuid = null;
+
             return $this->download($uuid, $service);
         }
 
         $this->selectedUuid = $uuid;
+        $this->showPreview = true;
     }
 
     public function closePreview(): void
     {
+        $this->showPreview = false;
         $this->selectedUuid = null;
     }
 

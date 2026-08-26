@@ -106,7 +106,7 @@
         {{-- VIEWS                                                          --}}
         {{-- ═══════════════════════════════════════════════════════════════ --}}
         <div class="relative min-h-[12rem]">
-        <x-ui.content-loading target="filterReview,searchQuery,groupBy,filterTag,clearFilter,loadMore,filterProject,filterPriority,filterAssignee,filterStatus,filterDue,scope,showCompleted,showTrashed,setSortBy,prevMonth,nextMonth" />
+        <x-ui.content-loading target="filterReview,searchQuery,groupBy,filterTag,clearFilter,loadMore,filterProject,filterPriority,filterAssignee,filterStatus,filterDue,scope,showCompleted,showTrashed,setSortBy,prevMonth,nextMonth,bulkUpdateStatus,bulkUpdatePriority,bulkAssign,bulkUpdateDueDate,bulkDelete,bulkRestore,bulkForceDelete" />
 
         @if($currentView === 'list')
             {{-- ─────────── CLICKUP GROUPED LIST VIEW ─────────── --}}
@@ -146,14 +146,24 @@
                          x-on:dragleave.prevent="isOver = false"
                          x-on:drop.prevent="
                             isOver = false;
-                            const payload = $event.dataTransfer.getData('text/plain');
-                            const taskId = parseInt(payload);
+                            const meta = window.__draggingTaskMeta || window.parseTaskDragPayload($event.dataTransfer.getData('text/plain'));
+                            const taskId = meta?.id;
                             if (!taskId) return;
+                            window.clearTaskDropIndicators();
+                            if (meta.isSub) {
+                                $wire.detachSubtask(taskId);
+                                window.__draggingTaskMeta = null;
+                                return;
+                            }
                             const alreadyHere = {{ \Illuminate\Support\Js::from($groupTaskIds) }}.map(Number).includes(taskId);
-                            if (alreadyHere) return;
+                            if (alreadyHere) {
+                                // Same-group drop on chrome: keep current order (row handlers do reorder).
+                                window.__draggingTaskMeta = null;
+                                return;
+                            }
                             @if(($group['type'] ?? '') === 'status')
                                 @if(! $isManager && in_array($group['state_type'] ?? '', ['completed', 'closed'], true))
-                                    if (String(payload).split('|')[1] === '1') return;
+                                    if (meta.mustPassReview) return;
                                 @endif
                             @endif
                             window.optimisticMoveTask(taskId, $event.currentTarget.querySelector('[data-task-drop-list]'));
@@ -168,6 +178,7 @@
                             @elseif(($group['type'] ?? '') === 'due_date')
                                 $wire.moveTaskToDueGroup(taskId, '{{ $groupKey }}')
                             @endif
+                            window.__draggingTaskMeta = null;
                          "
                          style="z-index: {{ $groupZIndex }}; position: relative;"
                          class="space-y-1 transition-colors duration-100 rounded-xl p-1"
@@ -211,7 +222,23 @@
                         </div>
 
                         {{-- Task Rows Container --}}
-                        <div x-show="!collapsed" class="py-2.5" data-task-drop-list>
+                        @php
+                            $dropGroupType = $group['type'] ?? '';
+                            $dropGroupValue = match ($dropGroupType) {
+                                'status' => (string) ($group['state_id'] ?? $groupKey),
+                                'priority' => (string) $groupKey,
+                                'project' => (string) $groupKey,
+                                'assignee' => (string) $groupKey,
+                                'due_date' => (string) $groupKey,
+                                default => (string) $groupKey,
+                            };
+                        @endphp
+                        <div x-show="!collapsed"
+                             class="py-2.5 min-h-12"
+                             data-task-drop-list
+                             data-group-type="{{ $dropGroupType }}"
+                             data-group-value="{{ $dropGroupValue }}"
+                             data-state-type="{{ $group['state_type'] ?? '' }}">
                             @forelse($group['tasks'] as $task)
                                 @php
                                     $isSelected = in_array($task->id, $selectedTasks);
@@ -225,25 +252,34 @@
                                     $progress = $task->calculateProgress();
                                     $childTasks = $task->relationLoaded('directSubtasks') ? $task->directSubtasks : collect();
                                     $hasChildren = $childTasks->isNotEmpty();
+                                    $canExpandSubtasks = $hasChildren || ($canCreate && ! $showTrashed);
                                 @endphp
-                                <div x-data="{ expanded: false }" class="space-y-0.5" data-task-row wire:key="task-row-{{ $task->id }}">
+                                <div x-data="{ expanded: false }" class="space-y-0.5" data-task-row data-task-id="{{ $task->id }}" wire:key="task-row-{{ $task->id }}">
                                 <div draggable="true"
                                      data-task-id="{{ $task->id }}"
                                      wire:key="task-card-{{ $task->id }}"
-                                     x-on:dragstart="window.__draggingTaskEl = $event.currentTarget; $event.dataTransfer.setData('text/plain', '{{ $task->id }}|{{ $task->mustPassReview() ? '1' : '0' }}'); $event.dataTransfer.effectAllowed = 'move'"
+                                     x-on:dragstart="
+                                        window.__draggingTaskEl = $event.currentTarget;
+                                        window.__draggingTaskMeta = { id: {{ $task->id }}, mustPassReview: {{ $task->mustPassReview() ? 'true' : 'false' }}, isSub: false };
+                                        $event.dataTransfer.setData('text/plain', '{{ $task->id }}|{{ $task->mustPassReview() ? '1' : '0' }}|0');
+                                        $event.dataTransfer.effectAllowed = 'move';
+                                     "
+                                     x-on:dragend="window.clearTaskDropIndicators(); window.__draggingTaskMeta = null; window.__draggingTaskEl = null;"
+                                     x-on:dragover="window.handleRootRowDragOver($event, {{ $task->id }})"
+                                     x-on:drop="window.handleRootRowDrop($event, {{ $task->id }}, $wire)"
                                      class="px-3.5 py-2 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition relative group cursor-grab active:cursor-grabbing select-none rounded-lg border border-transparent hover:border-gray-200 dark:hover:border-gray-800"
                                      :class="$store.taskSel.isSelected({{ $task->id }}) ? 'bg-brand-50 dark:bg-brand-950' : ''">
 
                                     {{-- Left Section: Drag Handle, Checkbox, Priority & Title --}}
                                     <div class="flex items-center gap-2.5 min-w-0 flex-1">
-                                        {{-- Expand subtasks --}}
-                                        @if($hasChildren)
+                                        {{-- Expand subtasks (also when empty so quick-add is reachable) --}}
+                                        @if($canExpandSubtasks)
                                             <button type="button"
                                                     @click.stop="expanded = !expanded"
                                                     @mousedown.stop
                                                     draggable="false"
                                                     class="p-0.5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shrink-0"
-                                                    title="Show subtasks"
+                                                    title="{{ $hasChildren ? 'Show subtasks' : 'Add subtask' }}"
                                                     aria-label="Toggle subtasks">
                                                 <x-heroicon-m-chevron-right x-show="!expanded" class="w-3.5 h-3.5"/>
                                                 <x-heroicon-m-chevron-down x-show="expanded" class="w-3.5 h-3.5"/>
@@ -352,9 +388,14 @@
 
                                         @if($isManager && $task->statusKey() === 'code_review')
                                             <div class="flex items-center gap-1 shrink-0" @mousedown.stop @click.stop draggable="false">
-                                                <button type="button" wire:click.stop="approveTask({{ $task->id }})" class="px-2 py-1 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700">
+                                                <x-ui.wire-action-button
+                                                    target="approveTask({{ $task->id }})"
+                                                    wire:click.stop="approveTask({{ $task->id }})"
+                                                    loading-label="Approving…"
+                                                    class="px-2 py-1 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700"
+                                                >
                                                     Approve &amp; done
-                                                </button>
+                                                </x-ui.wire-action-button>
                                                 <button type="button" @click.stop="$wire.showReviewModal = true; $wire.openReviewModal({{ $task->id }})" class="px-2 py-1 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">
                                                     Changes
                                                 </button>
@@ -411,12 +452,26 @@
                                         </div>
 
                                         {{-- Actions --}}
-                                        <div class="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" @mousedown.stop @click.stop draggable="false" x-on:dragstart.prevent.stop>
+                                        <div
+                                            class="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                            wire:loading.class="!opacity-100"
+                                            wire:target="restoreTask({{ $task->id }}),forceDeleteTask({{ $task->id }}),deleteTask({{ $task->id }})"
+                                            @mousedown.stop
+                                            @click.stop
+                                            draggable="false"
+                                            x-on:dragstart.prevent.stop
+                                        >
                                             @if($showTrashed)
                                                 @if($canDelete)
-                                                <button type="button" wire:click.stop="restoreTask({{ $task->id }})" class="p-1 rounded text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition" title="Restore task" aria-label="Restore task">
+                                                <x-ui.wire-action-button
+                                                    target="restoreTask({{ $task->id }})"
+                                                    wire:click.stop="restoreTask({{ $task->id }})"
+                                                    class="p-1 rounded text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
+                                                    title="Restore task"
+                                                    aria-label="Restore task"
+                                                >
                                                     <x-heroicon-m-arrow-uturn-left class="w-3.5 h-3.5"/>
-                                                </button>
+                                                </x-ui.wire-action-button>
                                                 <x-ui.confirm-button
                                                     type="button"
                                                     heading="Delete forever?"
@@ -467,33 +522,148 @@
                                                 'done' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
                                                 default => 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700',
                                             };
+                                            $subDueUrgency = $sub->dueUrgency();
                                         @endphp
-                                        <div class="px-3 py-1.5 flex items-center gap-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/80 group/sub">
+                                        <div class="px-3 py-1.5 flex items-center gap-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/80 group/sub cursor-grab active:cursor-grabbing"
+                                             data-subtask-row
+                                             data-task-id="{{ $sub->id }}"
+                                             draggable="true"
+                                             x-on:dragstart.stop="
+                                                window.__draggingTaskEl = $event.currentTarget;
+                                                window.__draggingTaskMeta = { id: {{ $sub->id }}, mustPassReview: {{ $sub->mustPassReview() ? 'true' : 'false' }}, isSub: true };
+                                                $event.dataTransfer.setData('text/plain', '{{ $sub->id }}|{{ $sub->mustPassReview() ? '1' : '0' }}|1');
+                                                $event.dataTransfer.effectAllowed = 'move';
+                                             "
+                                             x-on:dragend="window.clearTaskDropIndicators(); window.__draggingTaskMeta = null; window.__draggingTaskEl = null;"
+                                             :class="$store.taskSel.isSelected({{ $sub->id }}) ? 'bg-brand-50 dark:bg-brand-950' : ''">
+                                            <input type="checkbox"
+                                                   value="{{ $sub->id }}"
+                                                   x-model.number="$store.taskSel.selectedIds"
+                                                   @click.stop
+                                                   @change="$store.taskSel.syncSilent()"
+                                                   class="w-3.5 h-3.5 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer shrink-0">
                                             <x-heroicon-m-document-text class="w-3.5 h-3.5 text-gray-400 shrink-0"/>
                                             <a href="{{ \App\Helpers\TaskNav::detailUrl($sub->id) }}" wire:navigate
                                                class="min-w-0 flex-1 text-left text-xs font-medium text-gray-700 dark:text-gray-200 truncate hover:text-brand-600 dark:hover:text-brand-400">
                                                 {{ $sub->title }}
                                             </a>
-                                            <span class="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md border {{ $subStatusBadge }}">
-                                                {{ $sub->status->label() }}
-                                            </span>
-                                            <div class="flex items-center -space-x-1 shrink-0">
-                                                @foreach($sub->assignees->take(2) as $subAss)
-                                                    <x-ui.person-avatar :person="$subAss" size="xs" ring />
-                                                @endforeach
+
+                                            <div class="flex items-center gap-1.5 shrink-0 ml-auto" @mousedown.stop @click.stop>
+
+                                            <div x-data="floatingPanel({ width: 144, align: 'right', menuHeight: 280 })" class="relative shrink-0" @keydown.escape.window="if (open) closePanel()" x-on:destroy="destroy()">
+                                                <button x-ref="trigger" @click.stop="togglePanel()" @mousedown.stop class="px-2 py-0.5 rounded-lg text-[10px] font-bold border flex items-center gap-1 transition {{ $subStatusBadge }}">
+                                                    <span>{{ $sub->status->label() }}</span>
+                                                    <x-heroicon-m-chevron-down class="w-3 h-3 opacity-70"/>
+                                                </button>
+                                                <template x-teleport="body">
+                                                    <div x-show="open" @click.outside="onOutside($event)" x-cloak :style="panelStyle" class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1 text-xs divide-y divide-gray-100 dark:divide-gray-700">
+                                                        @foreach($workflowStates as $ws)
+                                                        @continue(! $isManager && $sub->mustPassReview() && in_array($ws->type, ['completed', 'closed'], true))
+                                                        @php
+                                                            $isReviewState = str_contains(strtolower((string) $ws->name), 'review');
+                                                            $wsColor = $isReviewState
+                                                                ? 'text-purple-600 dark:text-purple-400'
+                                                                : match($ws->type) {
+                                                                    'initial' => 'text-gray-700 dark:text-gray-200',
+                                                                    'active' => 'text-blue-600 dark:text-blue-400',
+                                                                    'completed' => 'text-emerald-600 dark:text-emerald-400',
+                                                                    default => 'text-purple-600 dark:text-purple-400',
+                                                                };
+                                                            $wsDot = $isReviewState
+                                                                ? 'bg-purple-500'
+                                                                : match($ws->type) {
+                                                                    'initial' => 'bg-gray-400',
+                                                                    'active' => 'bg-blue-500',
+                                                                    'completed' => 'bg-emerald-500',
+                                                                    default => 'bg-purple-500',
+                                                                };
+                                                        @endphp
+                                                        <button wire:click="moveTaskToState({{ $sub->id }}, {{ $ws->id }})" @click="closePanel()" class="w-full px-3 py-1.5 text-left font-semibold {{ $wsColor }} hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                            <span class="w-2 h-2 rounded-full {{ $wsDot }}"></span> {{ $ws->name }}
+                                                        </button>
+                                                        @endforeach
+                                                    </div>
+                                                </template>
                                             </div>
-                                            @if($sub->due_date)
-                                                <span class="shrink-0 text-[10px] font-mono {{ $sub->dueDateToneClasses('text') }}">
-                                                    {{ $sub->due_date->format('M d') }}
-                                                </span>
+
+                                            @if($isManager && $sub->statusKey() === 'code_review')
+                                                <div class="flex items-center gap-1 shrink-0">
+                                                    <x-ui.wire-action-button
+                                                        target="approveTask({{ $sub->id }})"
+                                                        wire:click.stop="approveTask({{ $sub->id }})"
+                                                        loading-label="Approving…"
+                                                        class="px-1.5 py-0.5 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700"
+                                                    >
+                                                        Approve &amp; done
+                                                    </x-ui.wire-action-button>
+                                                    <button type="button" @click.stop="$wire.showReviewModal = true; $wire.openReviewModal({{ $sub->id }})" class="px-1.5 py-0.5 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">
+                                                        Changes
+                                                    </button>
+                                                </div>
                                             @endif
+
+                                            <div x-data="floatingPanel({ width: 208, align: 'right', menuHeight: 220 })" class="relative shrink-0 flex items-center" @keydown.escape.window="if (open) closePanel()" x-on:destroy="destroy()">
+                                                <button x-ref="trigger" @click.stop="togglePanel()" @mousedown.stop class="focus:outline-none flex items-center -space-x-1 transition transform hover:scale-105" title="Manage assignees">
+                                                    @forelse($sub->assignees->take(2) as $subAss)
+                                                        <x-ui.person-avatar :person="$subAss" size="xs" ring />
+                                                    @empty
+                                                        <span class="w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 flex items-center justify-center text-[9px] border border-dashed border-gray-300 dark:border-gray-700 hover:border-brand-500 transition">
+                                                            +
+                                                        </span>
+                                                    @endforelse
+                                                </button>
+                                                <template x-teleport="body">
+                                                    <div x-show="open" @click.outside="onOutside($event)" x-cloak :style="panelStyle" class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-1 text-xs max-h-48 overflow-y-auto space-y-0.5">
+                                                        <button type="button" wire:click="updateTaskAssignee({{ $sub->id }}, null)" @click="closePanel()" class="w-full px-2 py-1.5 text-left font-medium text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                                                            Unassigned
+                                                        </button>
+                                                        @foreach($employeeRoster as $emp)
+                                                            @php $isAssigned = $sub->assignees->contains('id', $emp->id); @endphp
+                                                            <label class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-700 dark:text-gray-200">
+                                                                <input type="checkbox"
+                                                                       wire:click="toggleTaskAssignee({{ $sub->id }}, {{ $emp->id }})"
+                                                                       {{ $isAssigned ? 'checked' : '' }}
+                                                                       class="w-3.5 h-3.5 text-brand-600 rounded border-gray-300 dark:border-gray-600 focus:ring-brand-500 shrink-0">
+                                                                <x-ui.person-avatar :person="$emp" size="xs" />
+                                                                <span class="font-medium truncate">{{ $emp->name }}</span>
+                                                            </label>
+                                                        @endforeach
+                                                    </div>
+                                                </template>
+                                            </div>
+
+                                            <x-tasks.due-date-popover
+                                                :value="$sub->due_date?->format('Y-m-d')"
+                                                :urgency="$subDueUrgency"
+                                                wire-action="updateTaskDueDate"
+                                                :wire-params="[$sub->id]"
+                                            />
+
                                             <button type="button"
                                                     @click.stop="$wire.showEditModal = true; $wire.openEditModal({{ $sub->id }})"
-                                                    class="p-0.5 rounded text-gray-400 opacity-0 group-hover/sub:opacity-100 hover:text-brand-600 transition shrink-0"
+                                                    class="p-0.5 rounded text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition shrink-0"
                                                     title="Edit subtask"
                                                     aria-label="Edit subtask">
-                                                <x-heroicon-m-pencil-square class="w-3 h-3"/>
+                                                <x-heroicon-m-pencil-square class="w-3.5 h-3.5"/>
                                             </button>
+                                            @if($canDelete)
+                                            <x-ui.confirm-button
+                                                type="button"
+                                                heading="Move subtask to Trash?"
+                                                message="You can restore this subtask from Trash within 30 days."
+                                                confirm-label="Move to Trash"
+                                                method="deleteTask"
+                                                :params="[$sub->id]"
+                                                variant="danger-ghost"
+                                                size="icon-sm"
+                                                class="shrink-0"
+                                                title="Move to Trash"
+                                                aria-label="Move subtask to Trash"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                            </x-ui.confirm-button>
+                                            @endif
+                                            </div>
                                         </div>
                                     @endforeach
 
@@ -542,7 +712,9 @@
                                 </div>
                                 </div>
                             @empty
-                                <p class="px-4 py-3 text-xs text-gray-400 italic">No tasks in this group.</p>
+                                <p class="px-4 py-4 text-xs text-gray-400 italic border border-dashed border-gray-200 dark:border-gray-700 rounded-xl mx-2 min-h-12 flex items-center justify-center">
+                                    Drop tasks here
+                                </p>
                             @endforelse
 
                             @php
@@ -628,16 +800,21 @@
                          x-on:dragleave.prevent="isOver = false"
                          x-on:drop.prevent="
                             isOver = false;
-                            const payload = $event.dataTransfer.getData('text/plain');
-                            const taskId = parseInt(payload);
-                            if (!taskId) return;
+                            const meta = window.__draggingTaskMeta || window.parseTaskDragPayload($event.dataTransfer.getData('text/plain'));
+                            const taskId = meta?.id;
+                            if (!taskId || meta.isSub) return;
+                            window.clearTaskDropIndicators();
                             const alreadyHere = {{ \Illuminate\Support\Js::from($col['tasks']->pluck('id')->all()) }}.map(Number).includes(taskId);
-                            if (alreadyHere) return;
+                            if (alreadyHere) {
+                                window.__draggingTaskMeta = null;
+                                return;
+                            }
                             @if(! $isManager && in_array($col['state_type'], ['completed', 'closed'], true))
-                                if (String(payload).split('|')[1] === '1') return;
+                                if (meta.mustPassReview) return;
                             @endif
                             window.optimisticMoveTask(taskId, $event.currentTarget.querySelector('[data-task-drop-list]'));
                             $wire.moveTaskToState(taskId, {{ $col['state_id'] }})
+                            window.__draggingTaskMeta = null;
                          "
                          class="{{ $stateColors['bg'] }} rounded-2xl border {{ $stateColors['border'] }} ring-1 ring-gray-950/5 dark:ring-white/10 flex flex-col flex-shrink-0 transition-colors duration-100"
                          x-bind:class="isOver ? 'ring-2 ring-brand-500 bg-brand-50/40 dark:bg-brand-950/40' : ''"
@@ -670,7 +847,12 @@
                         </div>
 
                         {{-- Drag Cards Container --}}
-                        <div class="flex-1 overflow-y-auto p-2.5 space-y-2.5" data-task-drop-list style="max-height: calc(100vh - 320px);">
+                        <div class="flex-1 overflow-y-auto p-2.5 space-y-2.5 min-h-12"
+                             data-task-drop-list
+                             data-group-type="status"
+                             data-group-value="{{ $col['state_id'] }}"
+                             data-state-type="{{ $col['state_type'] }}"
+                             style="max-height: calc(100vh - 320px);">
                             @forelse($col['tasks'] as $task)
                                 @php
                                     $isSelected = in_array($task->id, $selectedTasks);
@@ -686,7 +868,15 @@
                                 <div draggable="true"
                                      data-task-id="{{ $task->id }}"
                                      wire:key="task-card-{{ $task->id }}"
-                                     x-on:dragstart="window.__draggingTaskEl = $event.currentTarget; $event.dataTransfer.setData('text/plain', '{{ $task->id }}|{{ $task->mustPassReview() ? '1' : '0' }}'); $event.dataTransfer.effectAllowed = 'move'"
+                                     x-on:dragstart="
+                                        window.__draggingTaskEl = $event.currentTarget;
+                                        window.__draggingTaskMeta = { id: {{ $task->id }}, mustPassReview: {{ $task->mustPassReview() ? 'true' : 'false' }}, isSub: false };
+                                        $event.dataTransfer.setData('text/plain', '{{ $task->id }}|{{ $task->mustPassReview() ? '1' : '0' }}|0');
+                                        $event.dataTransfer.effectAllowed = 'move';
+                                     "
+                                     x-on:dragend="window.clearTaskDropIndicators(); window.__draggingTaskMeta = null; window.__draggingTaskEl = null;"
+                                     x-on:dragover="window.handleBoardCardDragOver($event, {{ $task->id }})"
+                                     x-on:drop="window.handleBoardCardDrop($event, {{ $task->id }}, $wire)"
                                      class="bg-white dark:bg-gray-800 rounded-xl border-l-[3.5px] {{ $priBorder }} border border-gray-200/80 dark:border-white/10 shadow-2xs hover:shadow-md hover:ring-1 hover:ring-brand-500/30 transition-all p-3 space-y-2 group cursor-grab active:cursor-grabbing select-none"
                                      :class="$store.taskSel.isSelected({{ $task->id }}) ? 'ring-2 ring-brand-500 bg-brand-50/20 dark:bg-brand-950/20' : ''">
 
@@ -768,37 +958,63 @@
                                             </div>
 
                                             {{-- Quick Move Arrows --}}
-                                            <div class="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                @php
-                                                    $currentIdx = collect($board['columns'])->search(fn($c) => $c['state_id'] === $col['state_id']);
-                                                    $nextCol = $board['columns'][$currentIdx + 1] ?? null;
-                                                    $prevCol = $board['columns'][$currentIdx - 1] ?? null;
-                                                @endphp
+                                            {{-- Quick Move Arrows --}}
+                                            @php
+                                                $currentIdx = collect($board['columns'])->search(fn ($c) => $c['state_id'] === $col['state_id']);
+                                                $nextCol = $board['columns'][$currentIdx + 1] ?? null;
+                                                $prevCol = $board['columns'][$currentIdx - 1] ?? null;
+                                            @endphp
+                                            <div
+                                                class="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                @if ($prevCol || $nextCol)
+                                                    wire:loading.class="!opacity-100"
+                                                    wire:target="{{ collect([$prevCol, $nextCol])->filter()->map(fn ($c) => 'moveTaskToState('.$task->id.', '.$c['state_id'].')')->implode(',') }}"
+                                                @endif
+                                            >
                                                 @if($prevCol)
-                                                    <button wire:click="moveTaskToState({{ $task->id }}, {{ $prevCol['state_id'] }})" class="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-700 transition" title="Move back to {{ $prevCol['state_name'] }}" aria-label="Move back to {{ $prevCol['state_name'] }}">
+                                                    <x-ui.wire-action-button
+                                                        target="moveTaskToState({{ $task->id }}, {{ $prevCol['state_id'] }})"
+                                                        wire:click="moveTaskToState({{ $task->id }}, {{ $prevCol['state_id'] }})"
+                                                        class="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-700 transition"
+                                                        title="Move back to {{ $prevCol['state_name'] }}"
+                                                        aria-label="Move back to {{ $prevCol['state_name'] }}"
+                                                    >
                                                         <x-heroicon-m-chevron-left class="w-3.5 h-3.5"/>
-                                                    </button>
+                                                    </x-ui.wire-action-button>
                                                 @endif
                                                 @if($nextCol && ($isManager || ! $task->mustPassReview() || ! in_array($nextCol['state_type'] ?? '', ['completed', 'closed'], true)))
-                                                    <button wire:click="moveTaskToState({{ $task->id }}, {{ $nextCol['state_id'] }})" class="p-0.5 rounded hover:bg-brand-100 dark:hover:bg-brand-900/30 text-gray-400 hover:text-brand-600 transition" title="Move forward to {{ $nextCol['state_name'] }}" aria-label="Move forward to {{ $nextCol['state_name'] }}">
+                                                    <x-ui.wire-action-button
+                                                        target="moveTaskToState({{ $task->id }}, {{ $nextCol['state_id'] }})"
+                                                        wire:click="moveTaskToState({{ $task->id }}, {{ $nextCol['state_id'] }})"
+                                                        class="p-0.5 rounded hover:bg-brand-100 dark:hover:bg-brand-900/30 text-gray-400 hover:text-brand-600 transition"
+                                                        title="Move forward to {{ $nextCol['state_name'] }}"
+                                                        aria-label="Move forward to {{ $nextCol['state_name'] }}"
+                                                    >
                                                         <x-heroicon-m-chevron-right class="w-3.5 h-3.5"/>
-                                                    </button>
+                                                    </x-ui.wire-action-button>
                                                 @endif
                                             </div>
                                         </div>
 
                                         @if($isManager && $task->statusKey() === 'code_review')
                                             <div class="flex items-center gap-1.5 w-full" @mousedown.stop @click.stop draggable="false">
-                                                <button type="button" wire:click.stop="approveTask({{ $task->id }})" class="flex-1 px-2 py-1 rounded-md bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700 text-center">Approve &amp; done</button>
+                                                <x-ui.wire-action-button
+                                                    target="approveTask({{ $task->id }})"
+                                                    wire:click.stop="approveTask({{ $task->id }})"
+                                                    loading-label="Approving…"
+                                                    class="flex-1 px-2 py-1 rounded-md bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700 text-center"
+                                                >
+                                                    Approve &amp; done
+                                                </x-ui.wire-action-button>
                                                 <button type="button" @click.stop="$wire.showReviewModal = true; $wire.openReviewModal({{ $task->id }})" class="flex-1 px-2 py-1 rounded-md bg-red-600 text-[10px] font-bold text-white hover:bg-red-700 text-center">Changes</button>
                                             </div>
                                         @endif
                                     </div>
                                 </div>
                             @empty
-                                <div class="py-10 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                                <div class="py-10 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl min-h-12">
                                     <x-heroicon-o-plus-circle class="w-5 h-5 mb-1 opacity-40"/>
-                                    <span class="text-[10px] font-medium">No tasks</span>
+                                    <span class="text-[10px] font-medium">Drop tasks here</span>
                                 </div>
                             @endforelse
                         </div>
@@ -1005,7 +1221,14 @@
                                 <td class="px-3 py-2.5">
                                     <div class="flex items-center gap-1.5">
                                         @if($isManager && $t->statusKey() === 'code_review')
-                                            <button type="button" wire:click="approveTask({{ $t->id }})" class="px-2 py-1 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700">Approve &amp; done</button>
+                                            <x-ui.wire-action-button
+                                                target="approveTask({{ $t->id }})"
+                                                wire:click="approveTask({{ $t->id }})"
+                                                loading-label="Approving…"
+                                                class="px-2 py-1 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700"
+                                            >
+                                                Approve &amp; done
+                                            </x-ui.wire-action-button>
                                             <button type="button" @click="$wire.showReviewModal = true; $wire.openReviewModal({{ $t->id }})" class="px-2 py-1 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">Changes</button>
                                         @endif
                                         <button type="button" @click.stop="$wire.showEditModal = true; $wire.openEditModal({{ $t->id }})" class="p-1 rounded text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition {{ $isManager && $t->statusKey() === 'code_review' ? '' : 'opacity-0 group-hover:opacity-100' }}" title="Edit task" aria-label="Edit task">
@@ -1184,9 +1407,14 @@
 
         @if(!empty($hasMoreTasks) && in_array($currentView, ['list', 'table', 'timeline'], true))
             <div class="flex justify-center pt-1">
-                <button type="button" wire:click="loadMore" class="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-600 shadow-theme-xs hover:border-gray-300 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-white">
+                <x-ui.wire-action-button
+                    target="loadMore"
+                    wire:click="loadMore"
+                    loading-label="Loading…"
+                    class="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-600 shadow-theme-xs hover:border-gray-300 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-white"
+                >
                     Load more tasks
-                </button>
+                </x-ui.wire-action-button>
             </div>
         @endif
         </div>
@@ -1197,30 +1425,79 @@
         <template x-teleport="body">
                 <div x-show="$store.taskSel.selectedIds.length > 0"
                      x-cloak
-                     x-data="{ openStatus: false, openPriority: false, openAssignee: false, openDueDate: false }"
-                     @mousedown="$store.taskSel.sync($wire)"
+                     x-data="{
+                        openStatus: false,
+                        openPriority: false,
+                        openAssignee: false,
+                        openDueDate: false,
+                        busy: false,
+                        _unhook: null,
+                        init() {
+                            const bulkMethods = [
+                                'bulkUpdateStatus',
+                                'bulkUpdatePriority',
+                                'bulkAssign',
+                                'bulkUpdateDueDate',
+                                'bulkDelete',
+                                'bulkRestore',
+                                'bulkForceDelete',
+                            ];
+                            // Resolve via dashboard root — toolbar is teleported to body, so $wire closestComponent may fail.
+                            const componentId = document.querySelector('[data-task-dashboard]')?.getAttribute('wire:id');
+                            if (!componentId || typeof Livewire === 'undefined') return;
+                            this._unhook = Livewire.hook('commit', ({ component, commit, respond }) => {
+                                if (component.id !== componentId) return;
+                                const calls = commit.calls || [];
+                                if (!calls.some((c) => bulkMethods.includes(c.method))) return;
+                                this.busy = true;
+                                this.openStatus = false;
+                                this.openPriority = false;
+                                this.openAssignee = false;
+                                this.openDueDate = false;
+                                respond(() => { this.busy = false; });
+                            });
+                        },
+                        destroy() {
+                            if (typeof this._unhook === 'function') this._unhook();
+                        },
+                     }"
+                     @mousedown="if (!busy) $store.taskSel.sync($wire)"
                      x-transition:enter="transition ease-out duration-200"
                      x-transition:enter-start="opacity-0 translate-y-6 scale-95"
                      x-transition:enter-end="opacity-100 translate-y-0 scale-100"
                      x-transition:leave="transition ease-in duration-150"
                      x-transition:leave-start="opacity-100 translate-y-0 scale-100"
                      x-transition:leave-end="opacity-0 translate-y-6 scale-95"
-                     class="fixed bottom-6 inset-x-0 mx-auto w-max max-w-[calc(100vw-2rem)] z-[9999] flex items-center justify-center gap-2 p-2 bg-white/95 dark:bg-gray-900/95 text-gray-900 dark:text-white backdrop-blur-md rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl ring-1 ring-gray-950/5 dark:ring-white/10 text-xs whitespace-nowrap">
+                     class="fixed bottom-6 inset-x-0 mx-auto w-max max-w-[calc(100vw-2rem)] z-[9999] flex items-center justify-center gap-2 p-2 bg-white/95 dark:bg-gray-900/95 text-gray-900 dark:text-white backdrop-blur-md rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl ring-1 ring-gray-950/5 dark:ring-white/10 text-xs whitespace-nowrap"
+                     :class="busy && 'pointer-events-none'"
+                     :aria-busy="busy ? 'true' : 'false'">
 
                     {{-- Selection Count Badge --}}
                     <div class="flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 text-white rounded-xl font-bold shadow-2xs">
+                        <span x-show="busy"
+                              x-cloak
+                              class="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-solid border-white border-t-transparent"
+                              role="status"
+                              aria-label="Updating selected tasks"></span>
                         <span x-text="$store.taskSel.selectedIds.length"></span>
-                        <span>Selected</span>
+                        <span x-text="busy ? 'Updating…' : 'Selected'"></span>
                     </div>
 
+                    <div class="flex items-center justify-center gap-2 transition-opacity"
+                         :class="busy && 'opacity-60'">
                     <div class="h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
 
                     @if($showTrashed)
                         @if($canDelete)
-                        <button type="button" wire:click="bulkRestore" class="px-2.5 py-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 flex items-center gap-1.5 font-semibold transition text-emerald-700 dark:text-emerald-400">
+                        <x-ui.wire-action-button
+                            target="bulkRestore"
+                            wire:click="bulkRestore"
+                            loading-label="Restoring…"
+                            class="px-2.5 py-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 flex items-center gap-1.5 font-semibold transition text-emerald-700 dark:text-emerald-400"
+                        >
                             <x-heroicon-m-arrow-uturn-left class="w-3.5 h-3.5"/>
                             <span>Restore</span>
-                        </button>
+                        </x-ui.wire-action-button>
                         <x-ui.confirm-button
                             heading="Delete forever?"
                             message="Selected tasks will be permanently deleted."
@@ -1355,6 +1632,7 @@
                             aria-label="Clear selection">
                         <x-heroicon-m-x-mark class="w-4 h-4"/>
                     </button>
+                    </div>
                 </div>
         </template>
 
@@ -1425,8 +1703,14 @@
             </div>
         </form>
         <x-slot:footer>
-            <button type="button" wire:click="$set('showCreateModal', false)" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
-            <button type="submit" form="modal-create-task" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Create</button>
+            <button type="button" @click="open = false" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
+            <button type="submit" form="modal-create-task" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60" wire:loading.attr="disabled" wire:target="createTask">
+                <span wire:loading.remove wire:target="createTask">Create</span>
+                <span wire:loading wire:target="createTask" class="inline-flex items-center gap-1.5">
+                    <x-ui.spinner size="sm" />
+                    Creating…
+                </span>
+            </button>
         </x-slot:footer>
     </x-ui.slide-form-modal>
 
@@ -1479,8 +1763,14 @@
             @if($editingTaskId)
                 <a href="{{ \App\Helpers\TaskNav::detailUrl($editingTaskId) }}" class="mr-auto text-sm font-medium text-brand-500 hover:underline">Open full task</a>
             @endif
-            <button type="button" wire:click="closeEditModal" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
-            <button type="submit" form="modal-edit-task" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Save</button>
+            <button type="button" @click="open = false; $wire.closeEditModal()" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
+            <button type="submit" form="modal-edit-task" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60" wire:loading.attr="disabled" wire:target="editTask">
+                <span wire:loading.remove wire:target="editTask">Save</span>
+                <span wire:loading wire:target="editTask" class="inline-flex items-center gap-1.5">
+                    <x-ui.spinner size="sm" />
+                    Saving…
+                </span>
+            </button>
         </x-slot:footer>
     </x-ui.slide-form-modal>
 
@@ -1495,8 +1785,14 @@
             </div>
         </form>
         <x-slot:footer>
-            <button type="button" wire:click="closeReviewModal" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
-            <button type="submit" form="modal-review-task" class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700">Send back</button>
+            <button type="button" @click="open = false; $wire.closeReviewModal()" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
+            <button type="submit" form="modal-review-task" class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60" wire:loading.attr="disabled" wire:target="submitReview">
+                <span wire:loading.remove wire:target="submitReview">Send back</span>
+                <span wire:loading wire:target="submitReview" class="inline-flex items-center gap-1.5">
+                    <x-ui.spinner size="sm" />
+                    Sending…
+                </span>
+            </button>
         </x-slot:footer>
     </x-ui.slide-form-modal>
 
@@ -1575,16 +1871,241 @@
 
             window.__pendingOptimisticCreates = 0;
             window.__optimisticCreateEntries = window.__optimisticCreateEntries || new Map();
+            window.__draggingTaskMeta = null;
+            window.__dropIntent = null;
 
-            window.optimisticMoveTask = function (taskId, dropListEl) {
+            window.parseTaskDragPayload = function (raw) {
+                const parts = String(raw || '').split('|');
+                return {
+                    id: parseInt(parts[0], 10) || 0,
+                    mustPassReview: parts[1] === '1',
+                    isSub: parts[2] === '1',
+                };
+            };
+
+            window.clearTaskDropIndicators = function () {
+                document.querySelectorAll('[data-drop-indicator]').forEach((el) => el.remove());
+                document.querySelectorAll('[data-nest-highlight="1"]').forEach((el) => {
+                    el.classList.remove('ring-2', 'ring-brand-500', 'bg-brand-50/60', 'dark:bg-brand-950/40');
+                    el.removeAttribute('data-nest-highlight');
+                    const hint = el.querySelector('[data-nest-hint]');
+                    if (hint) hint.remove();
+                });
+                window.__dropIntent = null;
+            };
+
+            window.showInsertIndicator = function (rowEl, position, targetId) {
+                window.clearTaskDropIndicators();
+                const wrapper = rowEl.closest('[data-task-row]') || rowEl.closest('[data-subtask-row]') || rowEl;
+                const line = document.createElement('div');
+                line.setAttribute('data-drop-indicator', '1');
+                line.className = 'h-0.5 bg-brand-500 rounded mx-2 my-0.5 pointer-events-none';
+                if (position === 'before') {
+                    wrapper.parentNode.insertBefore(line, wrapper);
+                    window.__dropIntent = { type: 'reorder', beforeId: targetId, afterId: null };
+                } else {
+                    wrapper.parentNode.insertBefore(line, wrapper.nextSibling);
+                    window.__dropIntent = { type: 'reorder', beforeId: null, afterId: targetId };
+                }
+            };
+
+            window.highlightNestTarget = function (rowEl, parentId) {
+                window.clearTaskDropIndicators();
+                const card = rowEl.closest('[data-task-id]') || rowEl;
+                card.setAttribute('data-nest-highlight', '1');
+                card.classList.add('ring-2', 'ring-brand-500', 'bg-brand-50/60', 'dark:bg-brand-950/40');
+                if (!card.querySelector('[data-nest-hint]')) {
+                    const hint = document.createElement('span');
+                    hint.setAttribute('data-nest-hint', '1');
+                    hint.className = 'absolute left-1/2 -translate-x-1/2 -bottom-2 z-20 rounded-md bg-brand-600 px-2 py-0.5 text-[10px] font-bold text-white shadow pointer-events-none';
+                    hint.textContent = 'Make subtask';
+                    card.classList.add('relative');
+                    card.appendChild(hint);
+                }
+                window.__dropIntent = { type: 'nest', parentId: parentId };
+            };
+
+            window.collectRootOrderFromList = function (dropListEl) {
+                if (!dropListEl) return [];
+                return Array.from(dropListEl.children)
+                    .filter((el) => el.matches('[data-task-row]'))
+                    .map((el) => parseInt(el.getAttribute('data-task-id') || el.querySelector('[data-task-id]')?.getAttribute('data-task-id'), 10))
+                    .filter((id) => Number.isFinite(id) && id > 0);
+            };
+
+            window.collectBoardOrderFromList = function (dropListEl) {
+                if (!dropListEl) return [];
+                return Array.from(dropListEl.querySelectorAll(':scope > [data-task-id]'))
+                    .map((el) => parseInt(el.getAttribute('data-task-id'), 10))
+                    .filter((id) => Number.isFinite(id) && id > 0);
+            };
+
+            window.optimisticMoveTask = function (taskId, dropListEl, opts = {}) {
                 if (!dropListEl) return;
                 const el = window.__draggingTaskEl
                     || document.querySelector('[data-task-id="' + taskId + '"]');
                 if (!el) return;
-                const moveEl = el.closest('[data-task-row]') || el;
-                if (moveEl.parentElement === dropListEl) return;
+                const moveEl = el.closest('[data-task-row]') || el.closest('[data-subtask-row]') || el;
+                if (opts.beforeId) {
+                    const beforeEl = dropListEl.querySelector('[data-task-row][data-task-id="' + opts.beforeId + '"]')
+                        || dropListEl.querySelector('[data-task-id="' + opts.beforeId + '"]');
+                    const beforeWrap = beforeEl?.closest('[data-task-row]') || beforeEl;
+                    if (beforeWrap && beforeWrap.parentElement === dropListEl) {
+                        dropListEl.insertBefore(moveEl, beforeWrap);
+                        window.__draggingTaskEl = null;
+                        return;
+                    }
+                }
+                if (opts.afterId) {
+                    const afterEl = dropListEl.querySelector('[data-task-row][data-task-id="' + opts.afterId + '"]')
+                        || dropListEl.querySelector('[data-task-id="' + opts.afterId + '"]');
+                    const afterWrap = afterEl?.closest('[data-task-row]') || afterEl;
+                    if (afterWrap && afterWrap.parentElement === dropListEl) {
+                        dropListEl.insertBefore(moveEl, afterWrap.nextSibling);
+                        window.__draggingTaskEl = null;
+                        return;
+                    }
+                }
+                if (moveEl.parentElement === dropListEl && !opts.beforeId && !opts.afterId) {
+                    window.__draggingTaskEl = null;
+                    return;
+                }
                 dropListEl.appendChild(moveEl);
                 window.__draggingTaskEl = null;
+            };
+
+            window.handleRootRowDragOver = function (event, targetId) {
+                const meta = window.__draggingTaskMeta;
+                if (!meta || !meta.id || meta.id === targetId) return;
+                if (meta.isSub) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const rect = event.currentTarget.getBoundingClientRect();
+                const y = event.clientY;
+                const topBand = rect.top + rect.height * 0.28;
+                const bottomBand = rect.bottom - rect.height * 0.28;
+                if (y < topBand) {
+                    window.showInsertIndicator(event.currentTarget, 'before', targetId);
+                } else if (y > bottomBand) {
+                    window.showInsertIndicator(event.currentTarget, 'after', targetId);
+                } else {
+                    window.highlightNestTarget(event.currentTarget, targetId);
+                }
+            };
+
+            window.applyGroupFieldMove = function (wire, meta, dropList) {
+                if (!wire || !meta?.id || !dropList) return Promise.resolve();
+                const groupType = dropList.getAttribute('data-group-type') || '';
+                const groupValue = dropList.getAttribute('data-group-value') || '';
+                const stateType = dropList.getAttribute('data-state-type') || '';
+
+                if (groupType === 'status') {
+                    if (meta.mustPassReview && ['completed', 'closed'].includes(stateType)) {
+                        return Promise.resolve(false);
+                    }
+                    const stateId = parseInt(groupValue, 10);
+                    if (!stateId) return Promise.resolve();
+                    return Promise.resolve(wire.moveTaskToState(meta.id, stateId));
+                }
+                if (groupType === 'priority' && groupValue) {
+                    return Promise.resolve(wire.updateTaskPriority(meta.id, groupValue));
+                }
+                if (groupType === 'project') {
+                    const projectId = groupValue === 'none' || groupValue === '' ? null : parseInt(groupValue, 10);
+                    return Promise.resolve(wire.updateTaskProject(meta.id, Number.isFinite(projectId) ? projectId : null));
+                }
+                if (groupType === 'assignee') {
+                    const assigneeId = groupValue === 'unassigned' || groupValue === '' ? null : parseInt(groupValue, 10);
+                    return Promise.resolve(wire.updateTaskAssignee(meta.id, Number.isFinite(assigneeId) ? assigneeId : null));
+                }
+                if (groupType === 'due_date' && groupValue) {
+                    return Promise.resolve(wire.moveTaskToDueGroup(meta.id, groupValue));
+                }
+                return Promise.resolve();
+            };
+
+            window.handleRootRowDrop = function (event, targetId, wire) {
+                event.preventDefault();
+                event.stopPropagation();
+                const meta = window.__draggingTaskMeta || window.parseTaskDragPayload(event.dataTransfer.getData('text/plain'));
+                const intent = window.__dropIntent;
+                window.clearTaskDropIndicators();
+                if (!meta?.id || meta.id === targetId) return;
+                if (meta.isSub) return;
+
+                const dropList = event.currentTarget.closest('[data-task-drop-list]');
+                if (!dropList) return;
+
+                if (intent?.type === 'nest') {
+                    const parentRow = dropList.querySelector('[data-task-row][data-task-id="' + intent.parentId + '"]');
+                    if (parentRow && window.Alpine) {
+                        try {
+                            const data = Alpine.$data(parentRow);
+                            if (data) data.expanded = true;
+                        } catch (e) {}
+                    }
+                    wire.nestTask(meta.id, intent.parentId);
+                    window.__draggingTaskMeta = null;
+                    return;
+                }
+
+                if (intent?.type === 'reorder') {
+                    const previousIds = window.collectRootOrderFromList(dropList);
+                    const alreadyHere = previousIds.includes(meta.id);
+                    window.optimisticMoveTask(meta.id, dropList, {
+                        beforeId: intent.beforeId,
+                        afterId: intent.afterId,
+                    });
+                    const ids = window.collectRootOrderFromList(dropList);
+                    const finish = () => {
+                        wire.reorderTasks(ids);
+                        window.__draggingTaskMeta = null;
+                    };
+                    if (!alreadyHere) {
+                        Promise.resolve(window.applyGroupFieldMove(wire, meta, dropList)).finally(finish);
+                    } else {
+                        finish();
+                    }
+                    return;
+                }
+            };
+
+            window.handleBoardCardDragOver = function (event, targetId) {
+                const meta = window.__draggingTaskMeta;
+                if (!meta || !meta.id || meta.id === targetId || meta.isSub) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const rect = event.currentTarget.getBoundingClientRect();
+                const y = event.clientY;
+                const mid = rect.top + rect.height / 2;
+                window.showInsertIndicator(event.currentTarget, y < mid ? 'before' : 'after', targetId);
+            };
+
+            window.handleBoardCardDrop = function (event, targetId, wire) {
+                event.preventDefault();
+                event.stopPropagation();
+                const meta = window.__draggingTaskMeta || window.parseTaskDragPayload(event.dataTransfer.getData('text/plain'));
+                const intent = window.__dropIntent;
+                window.clearTaskDropIndicators();
+                if (!meta?.id || meta.id === targetId || meta.isSub) return;
+                const dropList = event.currentTarget.closest('[data-task-drop-list]');
+                if (!dropList || intent?.type !== 'reorder') return;
+                const previousIds = window.collectBoardOrderFromList(dropList);
+                const alreadyHere = previousIds.includes(meta.id);
+                window.optimisticMoveTask(meta.id, dropList, {
+                    beforeId: intent.beforeId,
+                    afterId: intent.afterId,
+                });
+                const ids = window.collectBoardOrderFromList(dropList);
+                const finish = () => {
+                    wire.reorderTasks(ids);
+                    window.__draggingTaskMeta = null;
+                };
+                if (!alreadyHere) {
+                    Promise.resolve(window.applyGroupFieldMove(wire, meta, dropList)).finally(finish);
+                } else {
+                    finish();
+                }
             };
 
             function priorityDotClass(priority) {

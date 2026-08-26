@@ -7,10 +7,12 @@ use App\Mail\TaskAssignedMail;
 use App\Mail\TaskCompletedMail;
 use App\Mail\TaskCreatedMail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Mail;
 use Modules\Employees\Models\Employee;
 use Modules\MultiTenancy\Models\Workspace;
+use Modules\Notifications\Models\NotificationLog;
 use Modules\Notifications\Services\EmailNotificationService;
 use Modules\Projects\Models\Project;
 use Modules\Tasks\Models\Task;
@@ -39,6 +41,21 @@ class NotificationEmailDeliveryTest extends TestCase
         Mail::assertNotQueued(TaskAssignedMail::class);
     }
 
+    public function test_dispatch_notify_runs_synchronously_and_sends_mail(): void
+    {
+        Mail::fake();
+
+        [$assignee, $task] = $this->seedAssignedTask();
+
+        SendNotificationEmailJob::dispatchNotify('task_assigned', $task->id, $assignee->id);
+
+        Mail::assertSent(TaskAssignedMail::class, function (TaskAssignedMail $mail) use ($assignee) {
+            return $mail->hasTo($assignee->email);
+        });
+
+        Mail::assertNotQueued(TaskAssignedMail::class);
+    }
+
     public function test_task_created_job_sends_to_project_teammates(): void
     {
         Mail::fake();
@@ -57,7 +74,7 @@ class NotificationEmailDeliveryTest extends TestCase
         });
     }
 
-    public function test_update_fields_to_done_dispatches_completed_email_job(): void
+    public function test_update_fields_to_done_dispatches_completed_email_job_sync(): void
     {
         Mail::fake();
 
@@ -76,7 +93,7 @@ class NotificationEmailDeliveryTest extends TestCase
             'current_state_id' => $done->id,
         ], $creator);
 
-        Bus::assertDispatched(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task) {
+        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task) {
             return $job->type === 'task_completed' && $job->modelId === $task->id;
         });
 
@@ -86,6 +103,36 @@ class NotificationEmailDeliveryTest extends TestCase
         Mail::assertSent(TaskCompletedMail::class, function (TaskCompletedMail $mail) use ($assignee) {
             return $mail->hasTo($assignee->email);
         });
+    }
+
+    public function test_mail_diagnose_sample_task_assigned_sends_mailable(): void
+    {
+        Mail::fake();
+
+        [$assignee, $task] = $this->seedAssignedTask();
+        $to = 'diagnose-sample-'.uniqid().'@example.com';
+
+        $exit = Artisan::call('mail:diagnose', [
+            '--send' => $to,
+            '--sample' => 'task_assigned',
+        ]);
+
+        $this->assertSame(0, $exit);
+
+        Mail::assertSent(TaskAssignedMail::class, function (TaskAssignedMail $mail) use ($to) {
+            return $mail->hasTo($to);
+        });
+
+        $this->assertTrue(
+            NotificationLog::query()
+                ->where('recipient', $to)
+                ->where('body', 'task_assigned')
+                ->where('status', 'sent')
+                ->exists()
+        );
+
+        $this->assertNotNull($task->id);
+        $this->assertNotNull($assignee->id);
     }
 
     /**

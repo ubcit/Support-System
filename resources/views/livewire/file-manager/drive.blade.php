@@ -63,7 +63,11 @@
             <div class="group overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:border-brand-300 hover:shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03] dark:hover:border-brand-500">
                 <button
                     type="button"
-                    wire:click="openPreview('{{ $file->uuid }}')"
+                    @if ($previewable)
+                        @click="$wire.showPreview = true; $wire.openPreview('{{ $file->uuid }}')"
+                    @else
+                        wire:click="openPreview('{{ $file->uuid }}')"
+                    @endif
                     class="block w-full text-left"
                 >
                     <div class="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-gray-50 dark:bg-white/[0.04]">
@@ -152,68 +156,95 @@
         </div>
     @endif
 
-    @if ($selected)
-        @php $previewUrl = route('attachments.media', ['uuid' => $selected->uuid]); @endphp
+    <div
+        wire:ignore.self
+        x-data="{ open: $wire.entangle('showPreview').live }"
+    >
         <div
-            class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5"
-            wire:keydown.escape.window="closePreview"
+            class="fixed inset-0 z-[99999] flex items-center justify-center overflow-y-auto p-5"
+            x-show="open"
+            x-cloak
+            x-transition.opacity.duration.150ms
+            x-effect="document.body.classList.toggle('overflow-hidden', !!open)"
+            @keydown.escape.window="if (open) { open = false; $wire.closePreview() }"
         >
             <div
                 class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"
-                wire:click="closePreview"
+                @click="open = false; $wire.closePreview()"
             ></div>
 
-            <div class="relative w-full max-w-4xl rounded-3xl bg-white p-5 shadow-xl dark:bg-gray-900 sm:p-6">
-                <div class="mb-4 flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                        <h3 class="truncate text-lg font-semibold text-gray-800 dark:text-white/90">{{ $selected->original_name }}</h3>
-                        <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                            {{ $selected->type?->label() ?? 'Other' }} · {{ $selected->human_size }}
-                        </p>
-                    </div>
-                    <button
-                        type="button"
-                        wire:click="closePreview"
-                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:text-white"
-                        aria-label="Close preview"
-                    >
-                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
-                    </button>
+            <div
+                class="relative w-full max-w-4xl rounded-3xl bg-white p-5 shadow-xl dark:bg-gray-900 sm:p-6"
+                @click.stop
+                x-show="open"
+                x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="opacity-0 scale-95"
+                x-transition:enter-end="opacity-100 scale-100"
+            >
+                <div
+                    wire:loading.flex
+                    wire:target="openPreview"
+                    class="min-h-[12rem] flex-col items-center justify-center gap-3 py-12"
+                >
+                    <span class="inline-block h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" aria-hidden="true"></span>
+                    <span class="text-sm text-gray-500 dark:text-gray-400">Loading preview…</span>
                 </div>
 
-                <div class="overflow-hidden rounded-xl bg-gray-50 dark:bg-black/40">
-                    @if (($selected->type?->value ?? '') === 'image')
-                        <img src="{{ $previewUrl }}" alt="{{ $selected->original_name }}" class="mx-auto max-h-[70vh] w-auto object-contain" />
-                    @elseif (($selected->type?->value ?? '') === 'video')
-                        <video src="{{ $previewUrl }}" controls playsinline class="mx-auto max-h-[70vh] w-full bg-black"></video>
-                    @elseif (($selected->type?->value ?? '') === 'voice')
-                        <div class="space-y-4 p-6">
-                            <audio controls class="w-full">
-                                <source src="{{ $previewUrl }}" type="{{ $selected->mime_type }}">
-                            </audio>
-                            @if ($selected->ai_transcript)
-                                <div class="rounded-lg border border-purple-200 bg-purple-50 p-3 text-sm dark:border-purple-800 dark:bg-purple-950">
-                                    <span class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">Transcript</span>
-                                    <p class="italic text-gray-700 dark:text-gray-300">{{ $selected->ai_transcript }}</p>
+                <div wire:loading.remove wire:target="openPreview">
+                    @if ($selected)
+                        @php $previewUrl = route('attachments.media', ['uuid' => $selected->uuid]); @endphp
+                        <div class="mb-4 flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <h3 class="truncate text-lg font-semibold text-gray-800 dark:text-white/90">{{ $selected->original_name }}</h3>
+                                <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                                    {{ $selected->type?->label() ?? 'Other' }} · {{ $selected->human_size }}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                @click="open = false; $wire.closePreview()"
+                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:text-white"
+                                aria-label="Close preview"
+                            >
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+
+                        <div class="overflow-hidden rounded-xl bg-gray-50 dark:bg-black/40">
+                            @if (($selected->type?->value ?? '') === 'image')
+                                <img src="{{ $previewUrl }}" alt="{{ $selected->original_name }}" class="mx-auto max-h-[70vh] w-auto object-contain" />
+                            @elseif (($selected->type?->value ?? '') === 'video')
+                                <video src="{{ $previewUrl }}" controls playsinline class="mx-auto max-h-[70vh] w-full bg-black"></video>
+                            @elseif (($selected->type?->value ?? '') === 'voice')
+                                <div class="space-y-4 p-6">
+                                    <audio controls class="w-full">
+                                        <source src="{{ $previewUrl }}" type="{{ $selected->mime_type }}">
+                                    </audio>
+                                    @if ($selected->ai_transcript)
+                                        <div class="rounded-lg border border-purple-200 bg-purple-50 p-3 text-sm dark:border-purple-800 dark:bg-purple-950">
+                                            <span class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">Transcript</span>
+                                            <p class="italic text-gray-700 dark:text-gray-300">{{ $selected->ai_transcript }}</p>
+                                        </div>
+                                    @endif
                                 </div>
+                            @elseif (($selected->type?->value ?? '') === 'pdf')
+                                <iframe src="{{ $previewUrl }}" title="{{ $selected->original_name }}" class="h-[70vh] w-full border-0"></iframe>
                             @endif
                         </div>
-                    @elseif (($selected->type?->value ?? '') === 'pdf')
-                        <iframe src="{{ $previewUrl }}" title="{{ $selected->original_name }}" class="h-[70vh] w-full border-0"></iframe>
-                    @endif
-                </div>
 
-                <div class="mt-4 flex justify-end gap-2">
-                    <x-ui.button variant="outline" size="sm" wire:click="download('{{ $selected->uuid }}')">
-                        Download
-                    </x-ui.button>
-                    <button type="button" wire:click="closePreview" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">
-                        Close
-                    </button>
+                        <div class="mt-4 flex justify-end gap-2">
+                            <x-ui.button variant="outline" size="sm" wire:click="download('{{ $selected->uuid }}')">
+                                Download
+                            </x-ui.button>
+                            <button type="button" @click="open = false; $wire.closePreview()" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">
+                                Close
+                            </button>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
-    @endif
+    </div>
 
     <x-ui.slide-form-modal
         entangle="showUploadModal" loading-target="openUploadModal"
@@ -236,10 +267,13 @@
             </div>
         </form>
         <x-slot:footer>
-            <button type="button" wire:click="closeUploadModal" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
+            <button type="button" @click="open = false; $wire.closeUploadModal()" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
             <button type="submit" form="modal-upload-file-drive" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600" wire:loading.attr="disabled">
                 <span wire:loading.remove wire:target="uploadFile">Upload</span>
-                <span wire:loading wire:target="uploadFile">Saving...</span>
+                <span wire:loading wire:target="uploadFile" class="inline-flex items-center gap-1.5">
+                    <x-ui.spinner size="sm" />
+                    Uploading…
+                </span>
             </button>
         </x-slot:footer>
     </x-ui.slide-form-modal>

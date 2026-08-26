@@ -106,7 +106,7 @@ class TaskLiveRefreshTest extends TestCase
         Livewire::actingAs($boss)
             ->test(TaskDashboard::class)
             ->assertOk()
-            ->assertSeeHtml('wire:poll.5s');
+            ->assertSeeHtml('data-task-dashboard');
 
         Livewire::actingAs($boss)
             ->test(TasksPanel::class)
@@ -133,5 +133,30 @@ class TaskLiveRefreshTest extends TestCase
             ->test(TaskDetail::class, ['record' => $task->id])
             ->assertOk()
             ->assertSeeHtml('wire:poll.5s="refreshFromServer"');
+    }
+
+    public function test_task_detail_unchanged_refresh_skips_render(): void
+    {
+        $viewer = User::where('email', 'ahmed@thespace.app')->firstOrFail();
+        $todo = WorkflowState::where('name', 'To Do')->firstOrFail();
+
+        $task = Task::factory()->create([
+            'title' => 'Stable poll task',
+            'current_state_id' => $todo->id,
+            'workflow_id' => $todo->workflow_id,
+        ]);
+        $task->assignments()->create([
+            'employee_id' => $viewer->resolveEmployee()->id,
+            'assigned_at' => now(),
+        ]);
+
+        $component = Livewire::actingAs($viewer)
+            ->test(TaskDetail::class, ['record' => $task->id])
+            ->assertSet('taskTitle', 'Stable poll task');
+
+        $component->call('refreshFromServer');
+
+        $effects = $component->effects;
+        $this->assertArrayNotHasKey('html', $effects);
     }
 }

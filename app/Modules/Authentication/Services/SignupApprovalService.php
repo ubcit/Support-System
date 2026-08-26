@@ -58,9 +58,7 @@ class SignupApprovalService
             ])->save();
         });
 
-        // Queued notification to the user's email address.
-        // (Mail classes are implemented in the emails step.)
-        Mail::to($pendingUser->email)->queue(
+        Mail::to($pendingUser->email)->sendNow(
             new SignupApprovedMail(
                 user: $pendingUser,
                 roleName: $role->name ?? $role->slug,
@@ -91,9 +89,7 @@ class SignupApprovalService
             ])->save();
         });
 
-        // Queued notification to the user's email address.
-        // (Mail classes are implemented in the emails step.)
-        Mail::to($pendingUser->email)->queue(
+        Mail::to($pendingUser->email)->sendNow(
             new SignupRejectedMail(
                 user: $pendingUser,
                 reviewerName: $reviewer->name,

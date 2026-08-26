@@ -72,7 +72,10 @@
                     <p class="text-theme-xs text-gray-400">Click your photo above to upload a new profile image. It saves as soon as you pick a file.</p>
                     <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:opacity-60">
                         <span wire:loading.remove wire:target="saveProfile">Save Profile</span>
-                        <span wire:loading wire:target="saveProfile">Saving…</span>
+                        <span wire:loading wire:target="saveProfile" class="inline-flex items-center gap-1.5">
+                            <x-ui.spinner size="sm" />
+                            Saving…
+                        </span>
                     </button>
                 </form>
             </div>
@@ -96,7 +99,10 @@
                     </div>
                     <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:opacity-60">
                         <span wire:loading.remove wire:target="changePassword">Update Password</span>
-                        <span wire:loading wire:target="changePassword">Updating…</span>
+                        <span wire:loading wire:target="changePassword" class="inline-flex items-center gap-1.5">
+                            <x-ui.spinner size="sm" />
+                            Updating…
+                        </span>
                     </button>
                 </form>
             </div>

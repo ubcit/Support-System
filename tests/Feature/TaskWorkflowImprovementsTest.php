@@ -11,6 +11,7 @@ use Database\Seeders\EssentialPlatformSeeder;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Database\Seeders\UserAndEmployeeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use App\Livewire\TaskDashboard\Index as TaskDashboard;
@@ -178,6 +179,7 @@ class TaskWorkflowImprovementsTest extends TestCase
     public function test_moving_a_task_to_review_notifies_managers(): void
     {
         Queue::fake();
+        Bus::fake([SendNotificationEmailJob::class]);
 
         $ahmed = User::where('email', 'ahmed@thespace.app')->firstOrFail()->resolveEmployee();
         $boss = User::where('email', 'boss@thespace.app')->firstOrFail()->resolveEmployee();
@@ -205,7 +207,7 @@ class TaskWorkflowImprovementsTest extends TestCase
                 ->where('type', 'review_requested')
                 ->exists()
         );
-        Queue::assertPushed(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $boss, $ahmed) {
+        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $boss, $ahmed) {
             return $job->type === 'review_requested'
                 && $job->modelId === $task->id
                 && $job->employeeId === $boss->id
@@ -259,6 +261,7 @@ class TaskWorkflowImprovementsTest extends TestCase
     public function test_comment_mention_creates_in_app_notification_and_queues_email(): void
     {
         Queue::fake();
+        Bus::fake([SendNotificationEmailJob::class]);
 
         $ahmed = User::where('email', 'ahmed@thespace.app')->firstOrFail()->resolveEmployee();
         $sara = User::where('email', 'sara@thespace.app')->firstOrFail()->resolveEmployee();
@@ -292,7 +295,7 @@ class TaskWorkflowImprovementsTest extends TestCase
                 ->exists()
         );
 
-        Queue::assertPushed(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($comment, $sara) {
+        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($comment, $sara) {
             return $job->type === 'comment_mention'
                 && $job->modelId === $comment->id
                 && $job->employeeId === $sara->id;
@@ -718,6 +721,7 @@ class TaskWorkflowImprovementsTest extends TestCase
     public function test_requesting_changes_returns_the_task_to_in_progress_and_notifies_the_assignee(): void
     {
         Queue::fake();
+        Bus::fake([SendNotificationEmailJob::class]);
 
         $boss = User::where('email', 'boss@thespace.app')->firstOrFail()->resolveEmployee();
         $ahmedUser = User::where('email', 'ahmed@thespace.app')->firstOrFail();
@@ -748,7 +752,7 @@ class TaskWorkflowImprovementsTest extends TestCase
                 ->where('type', 'task_changes_requested')
                 ->exists()
         );
-        Queue::assertPushed(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $ahmed) {
+        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $ahmed) {
             return $job->type === 'task_changes_requested'
                 && $job->modelId === $task->id
                 && $job->employeeId === $ahmed->id;

@@ -15,6 +15,7 @@ use Modules\Tasks\Models\Tag;
 use Modules\Tasks\Models\Task;
 use Modules\Tasks\Models\TaskChecklist;
 use Modules\Tasks\Models\TaskChecklistItem;
+use Modules\Tasks\Models\TaskComment;
 use Modules\Tasks\Services\NativeTaskService;
 
 class Index extends Component
@@ -142,6 +143,9 @@ class Index extends Component
             && $this->syncedUpdatedAt === $updatedAt
             && $this->syncedRelationStamp === $stamp
         ) {
+            // Avoid remorphing Alpine/flatpickr date UI on no-op polls.
+            $this->skipRender();
+
             return;
         }
 
@@ -192,6 +196,7 @@ class Index extends Component
     {
         $query = Task::with([
             'project',
+            'parent',
             'currentState',
             'assignees.user',
             'tags',
@@ -620,10 +625,78 @@ class Index extends Component
         }
     }
 
+    public function deleteChecklist(int $checklistId): void
+    {
+        $this->authorizeTaskUpdate();
+        $checklist = TaskChecklist::query()
+            ->where('task_id', $this->task?->id)
+            ->find($checklistId);
+
+        if (! $checklist) {
+            return;
+        }
+
+        app(NativeTaskService::class)->deleteChecklist($checklist);
+        $this->loadTask();
+        session()->flash('success', 'Checklist removed');
+    }
+
+    public function deleteChecklistItem(int $itemId): void
+    {
+        $this->authorizeTaskUpdate();
+        $item = TaskChecklistItem::query()
+            ->whereHas('checklist', fn ($q) => $q->where('task_id', $this->task?->id))
+            ->find($itemId);
+
+        if (! $item) {
+            return;
+        }
+
+        app(NativeTaskService::class)->deleteChecklistItem($item);
+        $this->loadTask();
+        session()->flash('success', 'Checklist item removed');
+    }
+
+    public function renameChecklist(int $checklistId, string $title): void
+    {
+        $this->authorizeTaskUpdate();
+        $checklist = TaskChecklist::query()
+            ->where('task_id', $this->task?->id)
+            ->find($checklistId);
+
+        if (! $checklist) {
+            return;
+        }
+
+        app(NativeTaskService::class)->renameChecklist($checklist, $title);
+        $this->loadTask();
+    }
+
+    public function renameChecklistItem(int $itemId, string $title): void
+    {
+        $this->authorizeTaskUpdate();
+        $item = TaskChecklistItem::query()
+            ->whereHas('checklist', fn ($q) => $q->where('task_id', $this->task?->id))
+            ->find($itemId);
+
+        if (! $item) {
+            return;
+        }
+
+        app(NativeTaskService::class)->renameChecklistItem($item, $title);
+        $this->loadTask();
+    }
+
     public function addSubtask(): void
     {
         $this->authorizeTaskUpdate();
         if (! $this->task || empty(trim($this->newSubtaskTitle))) {
+            return;
+        }
+
+        if ($this->task->parent_id !== null) {
+            session()->flash('error', 'Subtasks cannot have nested subtasks.');
+
             return;
         }
 
@@ -638,6 +711,27 @@ class Index extends Component
         session()->flash('success', 'Subtask created');
     }
 
+    public function deleteSubtask(int $subtaskId): void
+    {
+        $this->authorizePermission('tasks.delete');
+        if (! $this->task) {
+            return;
+        }
+
+        $subtask = Task::query()
+            ->where('parent_id', $this->task->id)
+            ->find($subtaskId);
+
+        if (! $subtask) {
+            return;
+        }
+
+        $this->authorize('delete', $subtask);
+        app(NativeTaskService::class)->deleteTask($subtask, $this->actor());
+        $this->loadTask();
+        session()->flash('success', 'Subtask moved to trash.');
+    }
+
     public function addComment(): void
     {
         $this->authorizeTaskUpdate();
@@ -650,6 +744,26 @@ class Index extends Component
         $this->newCommentText = '';
         $this->loadTask();
         session()->flash('success', 'Comment added');
+    }
+
+    public function deleteComment(int $commentId): void
+    {
+        if (! $this->task) {
+            return;
+        }
+
+        $comment = TaskComment::query()
+            ->where('task_id', $this->task->id)
+            ->find($commentId);
+
+        if (! $comment) {
+            return;
+        }
+
+        $this->authorize('delete', $comment);
+        app(NativeTaskService::class)->deleteComment($comment);
+        $this->loadTask();
+        session()->flash('success', 'Comment deleted');
     }
 
     public function getMentionableEmployees(): array

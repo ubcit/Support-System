@@ -8,14 +8,20 @@ export function createFloatingPanelState(config = {}) {
     const menuHeight = config.menuHeight || 260;
     const gap = config.gap ?? 6;
     const zIndex = config.zIndex ?? 100000;
+    // Livewire morph briefly zeros the trigger rect; require sustained absence before closing.
+    const missingTriggerCloseMs = config.missingTriggerCloseMs ?? 180;
 
     return {
         open: false,
         panelStyle: {},
         _reposition: null,
+        _missingTriggerSince: null,
+        _missingTriggerTimer: null,
 
         openPanel(afterOpen) {
             this.open = true;
+            this._missingTriggerSince = null;
+            this.clearMissingTriggerTimer();
             this.$nextTick(() => {
                 this.updatePosition();
                 this.bindReposition();
@@ -27,6 +33,8 @@ export function createFloatingPanelState(config = {}) {
 
         closePanel() {
             this.open = false;
+            this._missingTriggerSince = null;
+            this.clearMissingTriggerTimer();
             this.unbindReposition();
         },
 
@@ -38,6 +46,35 @@ export function createFloatingPanelState(config = {}) {
             }
         },
 
+        clearMissingTriggerTimer() {
+            if (this._missingTriggerTimer) {
+                clearTimeout(this._missingTriggerTimer);
+                this._missingTriggerTimer = null;
+            }
+        },
+
+        scheduleCloseIfTriggerStillMissing() {
+            this.clearMissingTriggerTimer();
+            this._missingTriggerTimer = setTimeout(() => {
+                this._missingTriggerTimer = null;
+                if (! this.open) {
+                    return;
+                }
+                const btn = this.$refs.trigger;
+                if (! btn || ! btn.isConnected) {
+                    this.closePanel();
+                    return;
+                }
+                const r = btn.getBoundingClientRect();
+                if (r.width === 0 && r.height === 0) {
+                    this.closePanel();
+                } else {
+                    this._missingTriggerSince = null;
+                    this.updatePosition();
+                }
+            }, missingTriggerCloseMs);
+        },
+
         updatePosition() {
             const btn = this.$refs.trigger;
             if (!btn) {
@@ -46,9 +83,18 @@ export function createFloatingPanelState(config = {}) {
 
             const r = btn.getBoundingClientRect();
             if (r.width === 0 && r.height === 0) {
-                this.closePanel();
+                // Skip this frame during Livewire morph; only close if still gone shortly after.
+                if (this.open) {
+                    if (! this._missingTriggerSince) {
+                        this._missingTriggerSince = Date.now();
+                    }
+                    this.scheduleCloseIfTriggerStillMissing();
+                }
                 return;
             }
+
+            this._missingTriggerSince = null;
+            this.clearMissingTriggerTimer();
 
             const spaceBelow = window.innerHeight - r.bottom;
             const openUp = spaceBelow < menuHeight && r.top > spaceBelow;
@@ -88,6 +134,7 @@ export function createFloatingPanelState(config = {}) {
         },
 
         unbindReposition() {
+            this.clearMissingTriggerTimer();
             if (!this._reposition) {
                 return;
             }

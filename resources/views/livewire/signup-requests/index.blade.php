@@ -65,8 +65,8 @@
                                 <x-ui.button
                                     class="w-full"
                                     wire:click="approve({{ $user->id }})"
-                                    wire:loading.attr="disabled"
                                     wire:target="approve({{ $user->id }})"
+                                    loading-label="Approving…"
                                 >
                                     Approve
                                 </x-ui.button>
@@ -84,8 +84,8 @@
                                     variant="danger"
                                     class="w-full"
                                     wire:click="reject({{ $user->id }})"
-                                    wire:loading.attr="disabled"
                                     wire:target="reject({{ $user->id }})"
+                                    loading-label="Rejecting…"
                                 >
                                     Reject
                                 </x-ui.button>

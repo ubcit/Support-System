@@ -114,7 +114,7 @@ Checklist:
 - `MAIL_MAILER` must **not** be `log` or `array` in production (those never leave the server).
 - From-address domain needs SPF/DKIM at your DNS provider.
 - GCP VPC / firewall must allow outbound TCP **587** (or **465**) from the VM.
-- Queued mail (`Mail::queue`, `SendNotificationEmailJob`) only sends when Supervisor workers are `RUNNING` and `QUEUE_CONNECTION=redis`.
+- Notification SMTP (`SendNotificationEmailJob::dispatchNotify`, digests) sends in-process — no worker required. Supervisor + `QUEUE_CONNECTION=redis` are still required for WhatsApp, rules, and other queued jobs.
 - After changing `.env` mail vars: `php artisan config:cache` then `php artisan queue:restart`.
 - CLI PHP must trust CAs (`openssl.cafile` set, or `ca-certificates` installed). Missing CA → `certificate verify failed` on SMTP.
 - App auto-detects common CA paths via `EnsureTlsCaBundle`; override with `MAIL_CAFILE` if needed.

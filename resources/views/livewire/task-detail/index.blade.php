@@ -235,7 +235,8 @@
                     {{-- ═════════════════════════════════════════════════════════ --}}
                     <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xs space-y-6">
 
-                        {{-- Subtasks Section --}}
+                        {{-- Subtasks Section (root tasks only — one level deep) --}}
+                        @if(is_null($task->parent_id))
                         <div class="space-y-3">
                             <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
                                 <x-heroicon-o-queue-list class="w-4 h-4"/> Subtasks ({{ $task->subtasks->count() }})
@@ -244,14 +245,32 @@
                             @if($task->subtasks->count() > 0)
                                 <div class="space-y-1.5 divide-y divide-gray-100 dark:divide-gray-800">
                                     @foreach($task->subtasks as $sub)
-                                        <div class="pt-1.5 flex items-center justify-between text-xs">
-                                            <a href="{{ \App\Helpers\TaskNav::detailUrl($sub->id) }}" class="font-semibold text-gray-800 dark:text-gray-200 hover:text-brand-600 dark:hover:text-brand-400 flex items-center gap-2">
-                                                <x-heroicon-m-document-text class="w-3.5 h-3.5 text-gray-400"/>
-                                                {{ $sub->title }}
+                                        <div class="pt-1.5 flex items-center justify-between gap-2 text-xs group/sub">
+                                            <a href="{{ \App\Helpers\TaskNav::detailUrl($sub->id) }}" class="font-semibold text-gray-800 dark:text-gray-200 hover:text-brand-600 dark:hover:text-brand-400 flex items-center gap-2 min-w-0">
+                                                <x-heroicon-m-document-text class="w-3.5 h-3.5 text-gray-400 shrink-0"/>
+                                                <span class="truncate">{{ $sub->title }}</span>
                                             </a>
-                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                                                {{ $sub->status->label() }}
-                                            </span>
+                                            <div class="flex items-center gap-1.5 shrink-0">
+                                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                                                    {{ $sub->status->label() }}
+                                                </span>
+                                                @can('delete', $sub)
+                                                <x-ui.confirm-button
+                                                    type="button"
+                                                    heading="Move subtask to Trash?"
+                                                    message="You can restore this subtask from Trash within 30 days."
+                                                    confirm-label="Move to Trash"
+                                                    method="deleteSubtask"
+                                                    :params="[$sub->id]"
+                                                    variant="danger-ghost"
+                                                    size="icon-sm"
+                                                    title="Move to Trash"
+                                                    aria-label="Move subtask to Trash"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                                </x-ui.confirm-button>
+                                                @endcan
+                                            </div>
                                         </div>
                                     @endforeach
                                 </div>
@@ -269,6 +288,19 @@
                         </div>
 
                         <div class="h-px bg-gray-100 dark:bg-gray-800"></div>
+                        @elseif($task->parent)
+                        <div class="space-y-2">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+                                <x-heroicon-o-queue-list class="w-4 h-4"/> Parent task
+                            </h3>
+                            <a href="{{ \App\Helpers\TaskNav::detailUrl($task->parent->id) }}"
+                               class="inline-flex items-center gap-2 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline">
+                                <x-heroicon-m-document-text class="w-3.5 h-3.5"/>
+                                {{ $task->parent->title }}
+                            </a>
+                        </div>
+                        <div class="h-px bg-gray-100 dark:bg-gray-800"></div>
+                        @endif
 
                         {{-- Checklists Section --}}
                         <div class="space-y-4">
@@ -291,21 +323,58 @@
 
                             @foreach($task->checklists as $chk)
                                 <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
-                                    <h4 class="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
-                                        {{ $chk->title }}
-                                    </h4>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <input type="text"
+                                               value="{{ $chk->title }}"
+                                               wire:blur="renameChecklist({{ $chk->id }}, $event.target.value)"
+                                               wire:keydown.enter.prevent="$event.target.blur()"
+                                               class="flex-1 min-w-0 text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider bg-transparent border-0 p-0 focus:ring-0 focus:outline-none"
+                                               aria-label="Checklist title">
+                                        <x-ui.confirm-button
+                                            type="button"
+                                            heading="Delete checklist?"
+                                            message="This removes the checklist and all of its items."
+                                            confirm-label="Delete"
+                                            method="deleteChecklist"
+                                            :params="[$chk->id]"
+                                            variant="danger-ghost"
+                                            size="icon-sm"
+                                            title="Delete checklist"
+                                            aria-label="Delete checklist"
+                                        >
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                        </x-ui.confirm-button>
+                                    </div>
 
                                     <div class="space-y-2">
                                         @foreach($chk->items as $item)
-                                            <label class="flex items-center gap-2.5 text-xs cursor-pointer group">
+                                            <div class="flex items-center gap-2.5 text-xs">
                                                 <input type="checkbox"
                                                        wire:click="toggleChecklistItem({{ $item->id }})"
                                                        {{ $item->is_completed ? 'checked' : '' }}
-                                                       class="w-4 h-4 text-emerald-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-emerald-500">
-                                                <span class="font-medium transition {{ $item->is_completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200 group-hover:text-brand-600' }}">
-                                                    {{ $item->title }}
-                                                </span>
-                                            </label>
+                                                       class="w-4 h-4 text-emerald-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-emerald-500 shrink-0">
+                                                <input type="text"
+                                                       value="{{ $item->title }}"
+                                                       wire:blur="renameChecklistItem({{ $item->id }}, $event.target.value)"
+                                                       wire:keydown.enter.prevent="$event.target.blur()"
+                                                       class="min-w-0 flex-1 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none {{ $item->is_completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200' }}"
+                                                       aria-label="Checklist item title">
+                                                <x-ui.confirm-button
+                                                    type="button"
+                                                    heading="Delete checklist item?"
+                                                    message="This removes the item from the checklist."
+                                                    confirm-label="Delete"
+                                                    method="deleteChecklistItem"
+                                                    :params="[$item->id]"
+                                                    variant="danger-ghost"
+                                                    size="icon-sm"
+                                                    class="shrink-0"
+                                                    title="Delete item"
+                                                    aria-label="Delete checklist item"
+                                                >
+                                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                                </x-ui.confirm-button>
+                                            </div>
                                         @endforeach
                                     </div>
 
@@ -393,16 +462,35 @@
                         {{-- Comment Stream --}}
                         <div class="space-y-3 pt-2 divide-y divide-gray-100 dark:divide-gray-800">
                             @forelse($task->comments as $comment)
-                                <div class="pt-3 flex gap-3">
+                                <div class="pt-3 flex gap-3 group/comment">
                                     <x-ui.person-avatar :person="$comment->employee" :name="$comment->employee?->name ?? 'User'" size="lg" />
-                                    <div class="flex-1 space-y-1">
-                                        <div class="flex items-center justify-between">
+                                    <div class="flex-1 space-y-1 min-w-0">
+                                        <div class="flex items-center justify-between gap-2">
                                             <span class="text-xs font-bold text-gray-900 dark:text-white">
                                                 {{ $comment->employee?->name ?? 'System User' }}
                                             </span>
-                                            <span class="text-[10px] text-gray-400 font-mono">
-                                                {{ $comment->created_at->diffForHumans() }}
-                                            </span>
+                                            <div class="flex items-center gap-2 shrink-0">
+                                                <span class="text-[10px] text-gray-400 font-mono">
+                                                    {{ $comment->created_at->diffForHumans() }}
+                                                </span>
+                                                @can('delete', $comment)
+                                                <x-ui.confirm-button
+                                                    type="button"
+                                                    heading="Delete comment?"
+                                                    message="This permanently removes the comment."
+                                                    confirm-label="Delete"
+                                                    method="deleteComment"
+                                                    :params="[$comment->id]"
+                                                    variant="danger-ghost"
+                                                    size="icon-sm"
+                                                    class="opacity-0 group-hover/comment:opacity-100"
+                                                    title="Delete comment"
+                                                    aria-label="Delete comment"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                                </x-ui.confirm-button>
+                                                @endcan
+                                            </div>
                                         </div>
                                         <p class="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
                                             {!! preg_replace('/@\[([^\]]+)\]/', '<span class="rounded bg-indigo-100 px-1 text-indigo-700 dark:bg-indigo-800 dark:text-indigo-300">@$1</span>', e($comment->content)) !!}
@@ -468,12 +556,22 @@
                                     <div class="mt-3">
                                         <textarea wire:model="approvalNote" rows="2" placeholder="Add a note (optional)..." class="w-full rounded border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"></textarea>
                                         <div class="mt-2 flex gap-2">
-                                            <button wire:click="approveTask" class="rounded bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
+                                            <x-ui.wire-action-button
+                                                target="approveTask"
+                                                wire:click="approveTask"
+                                                loading-label="Approving…"
+                                                class="rounded bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                                            >
                                                 Approve &amp; complete
-                                            </button>
-                                            <button wire:click="requestChanges" class="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">
+                                            </x-ui.wire-action-button>
+                                            <x-ui.wire-action-button
+                                                target="requestChanges"
+                                                wire:click="requestChanges"
+                                                loading-label="Sending…"
+                                                class="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+                                            >
                                                 Request Changes
-                                            </button>
+                                            </x-ui.wire-action-button>
                                         </div>
                                     </div>
                                 @else
@@ -537,7 +635,7 @@
                         </div>
 
                         {{-- Tags --}}
-                        <div x-data="{ open: false }" class="space-y-1.5 relative">
+                        <div x-data="{ open: false, newColor: @entangle('newTagColor').live }" class="space-y-1.5 relative">
                             <label class="text-xs font-semibold text-gray-500 dark:text-gray-400">Tags ({{ count($selectedTagIds) }})</label>
 
                             <div class="flex flex-wrap gap-1.5 min-h-[2rem]">
@@ -579,8 +677,9 @@
                                             @foreach(['#6B7280', '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'] as $color)
                                                 <button
                                                     type="button"
-                                                    wire:click="$set('newTagColor', '{{ $color }}')"
-                                                    class="h-4 w-4 rounded-full border-2 {{ $newTagColor === $color ? 'border-gray-900 dark:border-white' : 'border-transparent' }}"
+                                                    @click="newColor = '{{ $color }}'"
+                                                    class="h-4 w-4 rounded-full border-2"
+                                                    :class="newColor === '{{ $color }}' ? 'border-gray-900 dark:border-white' : 'border-transparent'"
                                                     style="background-color: {{ $color }};"
                                                     aria-label="Pick color"
                                                 ></button>

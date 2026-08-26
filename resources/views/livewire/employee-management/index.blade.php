@@ -199,7 +199,7 @@
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input type="checkbox" wire:model="formIsAvailable" class="rounded border-gray-300 text-brand-500 focus:ring-brand-500" /> Available for Work</label>
         </form>
         <x-slot:footer>
-            <button type="button" wire:click="$set('showCreateModal', false)" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
+            <button type="button" @click="open = false" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
             <button type="submit" form="modal-hire-employee" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Hire</button>
         </x-slot:footer>
     </x-ui.slide-form-modal>
@@ -247,7 +247,7 @@
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input type="checkbox" wire:model="formIsAvailable" class="rounded border-gray-300 text-brand-500 focus:ring-brand-500" /> Available for Work</label>
         </form>
         <x-slot:footer>
-            <button type="button" wire:click="$set('showEditModal', false)" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
+            <button type="button" @click="open = false" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
             <button type="submit" form="modal-edit-employee" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Save</button>
         </x-slot:footer>
     </x-ui.slide-form-modal>

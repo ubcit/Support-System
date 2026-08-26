@@ -103,11 +103,131 @@ class NativeTaskService
 
     public function createSubtask(Task $parentTask, array $data, ?Employee $creator = null): Task
     {
+        // Product model is one level deep: only root tasks may have children.
+        if ($parentTask->parent_id !== null) {
+            throw new \InvalidArgumentException('Subtasks cannot have nested subtasks.');
+        }
+
         $data['parent_id'] = $parentTask->id;
         $data['project_id'] = $parentTask->project_id;
         $data['workflow_id'] = $parentTask->workflow_id;
 
         return $this->createTask($data, $creator);
+    }
+
+    /**
+     * Persist a contiguous sort_order for a sibling set (same parent_id).
+     *
+     * @param  list<int>  $orderedIds
+     */
+    public function reorderTasks(array $orderedIds, ?Employee $actor = null): int
+    {
+        $orderedIds = array_values(array_unique(array_map('intval', $orderedIds)));
+        if ($orderedIds === []) {
+            return 0;
+        }
+
+        $tasks = Task::query()->whereIn('id', $orderedIds)->get()->keyBy('id');
+        if ($tasks->count() !== count($orderedIds)) {
+            throw new \InvalidArgumentException('One or more tasks could not be found for reorder.');
+        }
+
+        $parentIds = $tasks->map(fn (Task $task) => $task->parent_id)->unique()->values();
+        if ($parentIds->count() !== 1) {
+            throw new \InvalidArgumentException('Reorder requires tasks that share the same parent.');
+        }
+
+        foreach ($orderedIds as $index => $id) {
+            $task = $tasks->get($id);
+            $oldOrder = (int) $task->sort_order;
+            if ($oldOrder === $index) {
+                continue;
+            }
+
+            $task->update(['sort_order' => $index]);
+
+            TaskActivityLog::create([
+                'task_id' => $task->id,
+                'employee_id' => $actor?->id,
+                'action' => 'field_updated',
+                'field' => 'sort_order',
+                'old_value' => (string) $oldOrder,
+                'new_value' => (string) $index,
+            ]);
+        }
+
+        return count($orderedIds);
+    }
+
+    /**
+     * Convert an existing root task into a direct child of another root task.
+     */
+    public function attachAsSubtask(Task $child, Task $parent, ?Employee $actor = null): Task
+    {
+        if ($child->id === $parent->id) {
+            throw new \InvalidArgumentException('A task cannot be nested under itself.');
+        }
+
+        if ($parent->parent_id !== null) {
+            throw new \InvalidArgumentException('Subtasks cannot have nested subtasks.');
+        }
+
+        if ($child->parent_id !== null) {
+            throw new \InvalidArgumentException('Only root tasks can be nested under another task.');
+        }
+
+        if ($child->directSubtasks()->exists()) {
+            throw new \InvalidArgumentException('A task with subtasks cannot become a subtask.');
+        }
+
+        $nextOrder = (int) $parent->directSubtasks()->max('sort_order') + 1;
+
+        $child->update([
+            'parent_id' => $parent->id,
+            'project_id' => $parent->project_id,
+            'workflow_id' => $parent->workflow_id ?? $child->workflow_id,
+            'sort_order' => $nextOrder,
+        ]);
+
+        TaskActivityLog::create([
+            'task_id' => $child->id,
+            'employee_id' => $actor?->id,
+            'action' => 'nested_under_task',
+            'field' => 'parent_id',
+            'old_value' => null,
+            'new_value' => (string) $parent->id,
+        ]);
+
+        return $child->fresh(['parent', 'directSubtasks']);
+    }
+
+    /**
+     * Promote a subtask back to a root task.
+     */
+    public function detachSubtask(Task $task, ?Employee $actor = null): Task
+    {
+        if ($task->parent_id === null) {
+            return $task;
+        }
+
+        $oldParentId = (int) $task->parent_id;
+        $nextOrder = (int) Task::query()->whereNull('parent_id')->max('sort_order') + 1;
+
+        $task->update([
+            'parent_id' => null,
+            'sort_order' => $nextOrder,
+        ]);
+
+        TaskActivityLog::create([
+            'task_id' => $task->id,
+            'employee_id' => $actor?->id,
+            'action' => 'detached_from_parent',
+            'field' => 'parent_id',
+            'old_value' => (string) $oldParentId,
+            'new_value' => null,
+        ]);
+
+        return $task->fresh();
     }
 
     public function addChecklist(Task $task, string $title, array $items = []): TaskChecklist
@@ -135,6 +255,41 @@ class NativeTaskService
             'completed_at' => $completed ? now() : null,
             'completed_by' => $completed ? $employee?->id : null,
         ]);
+
+        return $item;
+    }
+
+    public function deleteChecklist(TaskChecklist $checklist): void
+    {
+        $checklist->items()->delete();
+        $checklist->delete();
+    }
+
+    public function deleteChecklistItem(TaskChecklistItem $item): void
+    {
+        $item->delete();
+    }
+
+    public function renameChecklist(TaskChecklist $checklist, string $title): TaskChecklist
+    {
+        $title = trim($title);
+        if ($title === '') {
+            return $checklist;
+        }
+
+        $checklist->update(['title' => $title]);
+
+        return $checklist;
+    }
+
+    public function renameChecklistItem(TaskChecklistItem $item, string $title): TaskChecklistItem
+    {
+        $title = trim($title);
+        if ($title === '') {
+            return $item;
+        }
+
+        $item->update(['title' => $title]);
 
         return $item;
     }
@@ -771,6 +926,12 @@ class NativeTaskService
         }
 
         return $comment;
+    }
+
+    public function deleteComment(TaskComment $comment): void
+    {
+        $comment->mentions()->delete();
+        $comment->delete();
     }
 
     /**

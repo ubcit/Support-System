@@ -94,13 +94,13 @@ class TaskNotificationDispatchTest extends TestCase
                 ->exists()
         );
 
-        Bus::assertDispatched(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $assignee) {
+        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $assignee) {
             return $job->type === 'task_assigned'
                 && $job->modelId === $task->id
                 && $job->employeeId === $assignee->id;
         });
 
-        Bus::assertDispatched(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $creator) {
+        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $creator) {
             return $job->type === 'task_created'
                 && $job->modelId === $task->id
                 && $job->employeeId === $creator->id;
@@ -163,13 +163,13 @@ class TaskNotificationDispatchTest extends TestCase
                 ->exists()
         );
 
-        Bus::assertDispatched(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $second) {
+        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $second) {
             return $job->type === 'task_assigned'
                 && $job->modelId === $task->id
                 && $job->employeeId === $second->id;
         });
 
-        Bus::assertNotDispatched(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($first) {
+        Bus::assertNotDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($first) {
             return $job->type === 'task_assigned' && $job->employeeId === $first->id;
         });
     }

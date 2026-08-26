@@ -10,6 +10,7 @@ use App\Policies\CustomerPolicy;
 use App\Policies\EmployeePolicy;
 use App\Policies\IssuePolicy;
 use App\Policies\ProjectPolicy;
+use App\Policies\TaskCommentPolicy;
 use App\Policies\TaskPolicy;
 use App\Services\AI\Providers\OpenAIProvider;
 use App\Services\Mock\MockAIProvider;
@@ -32,6 +33,7 @@ use Modules\Issues\Models\Issue;
 use Modules\Projects\Models\Project;
 use Modules\Tasks\Models\Task;
 use Modules\Tasks\Models\TaskAssignment;
+use Modules\Tasks\Models\TaskComment;
 
 use function Livewire\before;
 
@@ -98,6 +100,7 @@ class AppServiceProvider extends ServiceProvider
         // App\Models\{X} -> App\Policies\{X}Policy guesser can't find these;
         // register them explicitly instead.
         Gate::policy(Task::class, TaskPolicy::class);
+        Gate::policy(TaskComment::class, TaskCommentPolicy::class);
         Gate::policy(Project::class, ProjectPolicy::class);
         Gate::policy(Customer::class, CustomerPolicy::class);
         Gate::policy(Employee::class, EmployeePolicy::class);

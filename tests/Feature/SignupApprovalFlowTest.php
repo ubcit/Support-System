@@ -121,7 +121,7 @@ class SignupApprovalFlowTest extends TestCase
                 ->exists()
         );
 
-        Mail::assertQueued(SignupRequestReceivedMail::class, function (SignupRequestReceivedMail $mail) use ($user) {
+        Mail::assertSent(SignupRequestReceivedMail::class, function (SignupRequestReceivedMail $mail) use ($user) {
             return $mail->pendingUser->id === $user->id
                 && $mail->recipient->id === $this->boss->resolveEmployee()->id;
         });
@@ -271,7 +271,7 @@ class SignupApprovalFlowTest extends TestCase
             "Pivot role_id did not match boss. (bossRoleId={$bossRoleId}, bossRoleName={$bossRoleName}, adminRoleName={$adminRoleName}, pivotRoleId={$pivotRoleId})"
         );
 
-        Mail::assertQueued(SignupApprovedMail::class, function (SignupApprovedMail $mail) use ($pending) {
+        Mail::assertSent(SignupApprovedMail::class, function (SignupApprovedMail $mail) use ($pending) {
             return $mail->user->id === $pending->id && $mail->roleName === 'Boss';
         });
 
@@ -333,7 +333,7 @@ class SignupApprovalFlowTest extends TestCase
 
         $this->assertFalse(Employee::where('user_id', $pending->id)->exists());
 
-        Mail::assertQueued(SignupRejectedMail::class, function (SignupRejectedMail $mail) use ($pending, $message) {
+        Mail::assertSent(SignupRejectedMail::class, function (SignupRejectedMail $mail) use ($pending, $message) {
             return $mail->user->id === $pending->id && $mail->rejectionMessage === $message;
         });
 

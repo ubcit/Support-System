@@ -120,7 +120,10 @@
             </a>
             <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-6 py-2.5 text-center font-medium text-white hover:bg-opacity-90">
                 <span wire:loading.remove wire:target="save">Update Model</span>
-                <span wire:loading wire:target="save">Saving...</span>
+                <span wire:loading wire:target="save" class="inline-flex items-center gap-1.5">
+                    <x-ui.spinner size="sm" />
+                    Saving…
+                </span>
             </button>
         </div>
     </form>

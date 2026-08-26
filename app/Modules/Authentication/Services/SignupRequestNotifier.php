@@ -45,7 +45,7 @@ class SignupRequestNotifier
             );
 
             if ($employee->email) {
-                Mail::to($employee->email)->queue(
+                Mail::to($employee->email)->sendNow(
                     new SignupRequestReceivedMail($pendingUser, $employee)
                 );
             }

@@ -30,7 +30,7 @@
             @error('ai_prompt_id') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
         </form>
         <x-slot:footer>
-            <button type="button" wire:click="$set('showRunModal', false)" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
+            <button type="button" @click="open = false" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
             <button type="submit" form="modal-run-benchmark" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Run Benchmark</button>
         </x-slot:footer>
     </x-ui.slide-form-modal>

@@ -531,9 +531,8 @@ class EmailNotificationService
     {
         try {
             // sendNow: notification mailables must not re-queue via ShouldQueue.
-            // SendNotificationEmailJob (or the scheduler) already provides the queue hop;
-            // Mail::send() on a ShouldQueue mailable only enqueues SendQueuedMailable and
-            // would log "sent" before SMTP actually runs.
+            // Event emails are dispatched sync via SendNotificationEmailJob::dispatchNotify;
+            // Mail::send() on a ShouldQueue mailable would only enqueue SendQueuedMailable.
             Mail::to($employee->email)->sendNow($mailable);
 
             NotificationLog::create([

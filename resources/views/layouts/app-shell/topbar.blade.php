@@ -34,7 +34,7 @@
     {{-- Command palette trigger (desktop) --}}
     <button
         type="button"
-        @click="Livewire.dispatch('open-command-palette')"
+        @click="window.dispatchEvent(new CustomEvent('open-command-palette'))"
         title="Search or type a command"
         class="relative hidden h-9 w-64 shrink-0 items-center xl:flex"
     >
@@ -56,7 +56,7 @@
         <button
             type="button"
             class="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-white/5 xl:hidden"
-            @click="Livewire.dispatch('open-command-palette')"
+            @click="window.dispatchEvent(new CustomEvent('open-command-palette'))"
             aria-label="Search"
         >
             <svg class="fill-gray-500 dark:fill-gray-400" width="18" height="18" viewBox="0 0 20 20" fill="none">

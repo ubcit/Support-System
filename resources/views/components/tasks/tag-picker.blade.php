@@ -45,6 +45,7 @@
         search: '',
         options: @js($optionList),
         selected: @entangle($idsModel),
+        newColor: @entangle($newColorModel).live,
         createMethod: @js($createMethod),
         get selectedValues() {
             return Array.isArray(this.selected) ? this.selected.map(String) : [];
@@ -172,8 +173,9 @@
             @foreach($colors as $color)
                 <button
                     type="button"
-                    wire:click="$set('{{ $newColorModel }}', '{{ $color }}')"
-                    class="h-5 w-5 rounded-full border-2 transition {{ $selectedColor === $color ? 'border-gray-900 scale-110 dark:border-white' : 'border-transparent' }}"
+                    @click="newColor = '{{ $color }}'"
+                    class="h-5 w-5 rounded-full border-2 transition"
+                    :class="newColor === '{{ $color }}' ? 'border-gray-900 scale-110 dark:border-white' : 'border-transparent'"
                     style="background-color: {{ $color }};"
                     title="{{ $color }}"
                     aria-label="Pick color {{ $color }}"

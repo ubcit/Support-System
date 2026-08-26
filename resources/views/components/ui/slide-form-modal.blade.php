@@ -31,7 +31,7 @@
 <div
     wire:ignore.self
     @if ($entangle)
-        x-data="{ open: $wire.entangle(@js($entangle)) }"
+        x-data="{ open: $wire.entangle(@js($entangle)).live }"
     @else
         x-data="{ open: {{ $show ? 'true' : 'false' }} }"
     @endif

@@ -186,9 +186,14 @@
                 <div class="p-3 border-t border-gray-100 dark:border-white/10 bg-white dark:bg-gray-800 flex gap-2">
                     <input type="text" wire:model="replyMessage" wire:keydown.enter="sendReply" placeholder="Type WhatsApp reply..."
                         class="flex-1 p-1 rounded-xl border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 text-xs text-gray-900 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-brand-500 focus:border-brand-500">
-                    <button wire:click="sendReply" class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs rounded-xl shadow transition">
+                    <x-ui.wire-action-button
+                        target="sendReply"
+                        wire:click="sendReply"
+                        loading-label="Sending…"
+                        class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs rounded-xl shadow transition"
+                    >
                         Send
-                    </button>
+                    </x-ui.wire-action-button>
                 </div>
                 @else
                 <div class="p-3 border-t border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5">
@@ -527,7 +532,14 @@
                                         </a>
                                         @if($isManager && $st->statusKey() === 'code_review')
                                             <div class="mt-2 flex items-center gap-1">
-                                                <button type="button" wire:click="approveSessionTask({{ $st->id }})" class="px-2 py-1 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700">Approve &amp; done</button>
+                                                <x-ui.wire-action-button
+                                                    target="approveSessionTask({{ $st->id }})"
+                                                    wire:click="approveSessionTask({{ $st->id }})"
+                                                    loading-label="Approving…"
+                                                    class="px-2 py-1 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700"
+                                                >
+                                                    Approve &amp; done
+                                                </x-ui.wire-action-button>
                                                 <button type="button" @click="$wire.showTaskReviewModal = true; $wire.openSessionReviewModal({{ $st->id }})" class="px-2 py-1 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">Changes</button>
                                             </div>
                                         @endif
@@ -564,9 +576,15 @@
                                 <x-heroicon-s-check-circle class="w-4 h-4 shrink-0"/> Create task from this session
                             </button>
                         @endif
-                        <button wire:click="reanalyzeWithAi" wire:loading.attr="disabled" class="w-full text-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold text-[11px] rounded-lg transition flex items-center justify-center gap-1">
-                            <x-heroicon-o-arrow-path class="w-3.5 h-3.5 text-brand-500"/> Re-run AI Analysis
-                        </button>
+                        <x-ui.wire-action-button
+                            target="reanalyzeWithAi"
+                            wire:click="reanalyzeWithAi"
+                            loading-label="Analyzing…"
+                            class="w-full text-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold text-[11px] rounded-lg transition"
+                        >
+                            <x-heroicon-o-arrow-path class="w-3.5 h-3.5 text-brand-500"/>
+                            <span>Re-run AI Analysis</span>
+                        </x-ui.wire-action-button>
                         @if($copilot['request_log_id'])
                             <a href="{{ route('ai.request-logs.view', $copilot['request_log_id']) }}" class="flex w-full items-center justify-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-center text-[11px] font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/5">
                                 <x-heroicon-o-document-text class="w-3.5 h-3.5"/> Open AI request log
@@ -631,7 +649,14 @@
                                     </a>
                                     @if($isManager && $t->statusKey() === 'code_review')
                                         <div class="mt-2 flex items-center gap-1">
-                                            <button type="button" wire:click="approveSessionTask({{ $t->id }})" class="px-2 py-1 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700">Approve &amp; done</button>
+                                            <x-ui.wire-action-button
+                                                target="approveSessionTask({{ $t->id }})"
+                                                wire:click="approveSessionTask({{ $t->id }})"
+                                                loading-label="Approving…"
+                                                class="px-2 py-1 rounded-lg bg-emerald-600 text-[10px] font-bold text-white hover:bg-emerald-700"
+                                            >
+                                                Approve &amp; done
+                                            </x-ui.wire-action-button>
                                             <button type="button" @click="$wire.showTaskReviewModal = true; $wire.openSessionReviewModal({{ $t->id }})" class="px-2 py-1 rounded-lg bg-red-600 text-[10px] font-bold text-white hover:bg-red-700">Changes</button>
                                         </div>
                                     @endif
@@ -670,7 +695,7 @@
             </div>
         </form>
         <x-slot:footer>
-            <button type="button" wire:click="$set('showStartModal', false)" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
+            <button type="button" @click="open = false" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
             <button type="submit" form="modal-start-conversation" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Start</button>
         </x-slot:footer>
     </x-ui.slide-form-modal>
@@ -707,7 +732,7 @@
             </div>
         </form>
         <x-slot:footer>
-            <button type="button" wire:click="$set('showApproveModal', false)" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
+            <button type="button" @click="open = false" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
             <button type="submit" form="modal-approve-task" class="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700">Create Task</button>
         </x-slot:footer>
     </x-ui.slide-form-modal>
@@ -723,7 +748,7 @@
             </div>
         </form>
         <x-slot:footer>
-            <button type="button" wire:click="closeSessionReviewModal" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
+            <button type="button" @click="open = false; $wire.closeSessionReviewModal()" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Cancel</button>
             <button type="submit" form="modal-session-review" class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700">Send back</button>
         </x-slot:footer>
     </x-ui.slide-form-modal>

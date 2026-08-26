@@ -57,10 +57,10 @@ class Index extends Component
 
     public int $calendarYear = 0;
 
-    // Sorting (for list/table)
-    public string $sortBy = 'created_at';
+    // Sorting (for list/table) — custom order by default (ClickUp-style)
+    public string $sortBy = 'sort_order';
 
-    public string $sortDirection = 'desc';
+    public string $sortDirection = 'asc';
 
     public int $perPage = 50;
 
@@ -872,6 +872,56 @@ class Index extends Component
         }
     }
 
+    /**
+     * @param  list<int>  $orderedIds
+     */
+    public function reorderTasks(array $orderedIds): void
+    {
+        $this->authorizePermission('tasks.edit');
+
+        $orderedIds = array_values(array_filter(array_map('intval', $orderedIds)));
+        if ($orderedIds === []) {
+            return;
+        }
+
+        try {
+            app(NativeTaskService::class)->reorderTasks($orderedIds, $this->actor());
+        } catch (\InvalidArgumentException $e) {
+            session()->flash('error', $e->getMessage());
+        }
+    }
+
+    public function nestTask(int $childId, int $parentId): void
+    {
+        $this->authorizePermission('tasks.edit');
+
+        $child = Task::find($childId);
+        $parent = Task::find($parentId);
+        if (! $child || ! $parent) {
+            return;
+        }
+
+        try {
+            app(NativeTaskService::class)->attachAsSubtask($child, $parent, $this->actor());
+            session()->flash('success', 'Task nested as a subtask.');
+        } catch (\InvalidArgumentException $e) {
+            session()->flash('error', $e->getMessage());
+        }
+    }
+
+    public function detachSubtask(int $taskId): void
+    {
+        $this->authorizePermission('tasks.edit');
+
+        $task = Task::find($taskId);
+        if (! $task || $task->parent_id === null) {
+            return;
+        }
+
+        app(NativeTaskService::class)->detachSubtask($task, $this->actor());
+        session()->flash('success', 'Subtask promoted to a task.');
+    }
+
     public function quickCreateTask(
         string $title,
         ?int $stateId = null,
@@ -1008,11 +1058,14 @@ class Index extends Component
                 })->orderBy('created_at'),
             ]);
 
-        $allowedSorts = ['id', 'title', 'priority', 'due_date', 'estimated_hours', 'created_at'];
-        $sortBy = in_array($this->sortBy, $allowedSorts, true) ? $this->sortBy : 'created_at';
+        $allowedSorts = ['id', 'title', 'priority', 'due_date', 'estimated_hours', 'created_at', 'sort_order'];
+        $sortBy = in_array($this->sortBy, $allowedSorts, true) ? $this->sortBy : 'sort_order';
         $sortDirection = $this->sortDirection === 'asc' ? 'asc' : 'desc';
         $limit = $this->perPage * $this->page;
         $orderedQuery = $query->orderBy($sortBy, $sortDirection);
+        if ($sortBy === 'sort_order') {
+            $orderedQuery->orderBy('id');
+        }
         if ($this->filterReview === 'done_recent') {
             $orderedQuery->orderByDesc('completed_at');
         }
@@ -1098,9 +1151,6 @@ class Index extends Component
             $priorities = ['urgent' => 'Urgent', 'high' => 'High', 'medium' => 'Medium', 'low' => 'Low'];
             foreach ($priorities as $priKey => $priName) {
                 $groupTasks = $tasks->filter(fn ($t) => ($t->priority?->value ?? 'medium') === $priKey)->values();
-                if ($groupTasks->isEmpty()) {
-                    continue;
-                }
                 $groupedTasks->put($priKey, [
                     'title' => $priName,
                     'type' => 'priority',
@@ -1136,10 +1186,6 @@ class Index extends Component
                     };
                 })->sortBy(fn (Task $task) => $task->due_date?->timestamp ?? PHP_INT_MAX)->values();
 
-                if ($groupTasks->isEmpty()) {
-                    continue;
-                }
-
                 $groupedTasks->put($key, [
                     'title' => $meta['title'],
                     'type' => 'due_date',
@@ -1150,9 +1196,6 @@ class Index extends Component
         } elseif ($this->groupBy === 'project') {
             foreach ($projects as $pid => $pname) {
                 $groupTasks = $tasks->filter(fn ($t) => $t->project_id == $pid)->values();
-                if ($groupTasks->isEmpty()) {
-                    continue;
-                }
                 $groupedTasks->put($pid, [
                     'title' => $pname,
                     'type' => 'project',
@@ -1161,20 +1204,15 @@ class Index extends Component
                 ]);
             }
             $noProj = $tasks->filter(fn ($t) => empty($t->project_id))->values();
-            if ($noProj->isNotEmpty()) {
-                $groupedTasks->put('none', [
-                    'title' => 'No Project',
-                    'type' => 'project',
-                    'color' => 'gray',
-                    'tasks' => $noProj,
-                ]);
-            }
+            $groupedTasks->put('none', [
+                'title' => 'No Project',
+                'type' => 'project',
+                'color' => 'gray',
+                'tasks' => $noProj,
+            ]);
         } elseif ($this->groupBy === 'assignee') {
             foreach ($employees as $eid => $ename) {
                 $groupTasks = $tasks->filter(fn ($t) => $t->assignees->pluck('id')->contains($eid))->values();
-                if ($groupTasks->isEmpty()) {
-                    continue;
-                }
                 $groupedTasks->put($eid, [
                     'title' => $ename,
                     'type' => 'assignee',
@@ -1183,14 +1221,12 @@ class Index extends Component
                 ]);
             }
             $unassigned = $tasks->filter(fn ($t) => $t->assignees->isEmpty())->values();
-            if ($unassigned->isNotEmpty()) {
-                $groupedTasks->put('unassigned', [
-                    'title' => 'Unassigned',
-                    'type' => 'assignee',
-                    'color' => 'gray',
-                    'tasks' => $unassigned,
-                ]);
-            }
+            $groupedTasks->put('unassigned', [
+                'title' => 'Unassigned',
+                'type' => 'assignee',
+                'color' => 'gray',
+                'tasks' => $unassigned,
+            ]);
         } else {
             $firstStateId = $workflowStates->first()?->id;
             foreach ($workflowStates as $state) {
@@ -1201,9 +1237,6 @@ class Index extends Component
 
                     return $state->id === $firstStateId && ! $t->current_state_id;
                 })->values();
-                if ($groupTasks->isEmpty()) {
-                    continue;
-                }
                 $groupedTasks->put($state->id, [
                     'title' => $state->name,
                     'type' => 'status',
