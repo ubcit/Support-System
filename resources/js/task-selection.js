@@ -12,26 +12,41 @@ function createTaskSelStore() {
 
             return list.length > 0 && list.every((id) => this.selectedIds.includes(id));
         },
+        someSelected(ids) {
+            const list = (ids || []).map(Number);
+            if (list.length === 0) {
+                return false;
+            }
+            const selected = list.filter((id) => this.selectedIds.includes(id)).length;
+
+            return selected > 0 && selected < list.length;
+        },
         toggle(id, wire) {
             id = Number(id);
-            const i = this.selectedIds.indexOf(id);
-            if (i >= 0) {
-                this.selectedIds.splice(i, 1);
+            const set = new Set(this.selectedIds);
+            if (set.has(id)) {
+                set.delete(id);
             } else {
-                this.selectedIds.push(id);
+                set.add(id);
             }
+            // New array reference so every :checked binding re-evaluates immediately.
+            this.selectedIds = Array.from(set);
             this.sync(wire);
+
+            return this.isSelected(id);
         },
         toggleAll(ids, wire) {
             const list = (ids || []).map(Number);
+            const set = new Set(this.selectedIds);
             if (this.allSelected(list)) {
-                this.selectedIds = this.selectedIds.filter((id) => !list.includes(id));
+                list.forEach((id) => set.delete(id));
             } else {
-                const set = new Set(this.selectedIds);
                 list.forEach((id) => set.add(id));
-                this.selectedIds = Array.from(set);
             }
+            this.selectedIds = Array.from(set);
             this.sync(wire);
+
+            return this.allSelected(list);
         },
         clear(wire) {
             this.selectedIds = [];
