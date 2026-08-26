@@ -68,6 +68,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/reports-hub', App\Livewire\ReportsHub\Index::class)->name('reports-hub');
     Route::get('/customer-ai-limits', App\Livewire\CustomerAiLimits\Index::class)->name('customer-ai-limits');
     Route::get('/global-timeline', App\Livewire\GlobalTimeline\Index::class)->name('global-timeline');
+    Route::get('/audit-logs', App\Livewire\AuditLogs\Index::class)->name('audit-logs');
     Route::redirect('/kanban-board', '/admin/task-dashboard?view=board')->name('kanban-board');
     Route::get('/conversation-center', App\Livewire\ConversationCenter\Index::class)->name('conversation-center');
     Route::redirect('/conversation-explorer', '/admin/conversation-center')->name('conversation-explorer');

@@ -105,6 +105,7 @@ class MenuHelper
                     ['name' => 'Signup Requests', 'path' => '/admin/signup-requests', 'pro' => false],
                     ['name' => 'Reports & Analytics', 'path' => '/admin/reports-hub', 'pro' => false],
                     ['name' => 'Global Timeline', 'path' => '/admin/global-timeline', 'pro' => false],
+                    ['name' => 'Audit Log', 'path' => '/admin/audit-logs', 'pro' => false],
                     ['name' => 'Conversation Center', 'path' => '/admin/conversation-center', 'pro' => false],
                 ],
             ],

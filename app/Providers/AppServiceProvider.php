@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Contracts\AIProviderInterface;
 use App\Contracts\SyncProviderInterface;
 use App\Helpers\AppShell;
+use App\Models\User;
 use App\Policies\AttachmentPolicy;
 use App\Policies\CustomerPolicy;
 use App\Policies\EmployeePolicy;
@@ -24,16 +25,26 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Modules\Attachments\Models\Attachment;
+use Modules\Audit\Observers\AuditableObserver;
 use Modules\Communication\Models\Conversation;
 use Modules\Communication\Models\ConversationSession;
 use Modules\Communication\Models\Message;
 use Modules\Customers\Models\Customer;
 use Modules\Employees\Models\Employee;
 use Modules\Issues\Models\Issue;
+use Modules\Issues\Models\IssueComment;
 use Modules\Projects\Models\Project;
+use Modules\Projects\Models\ProjectAlias;
+use Modules\Security\Models\Permission;
+use Modules\Security\Models\Role;
 use Modules\Tasks\Models\Task;
 use Modules\Tasks\Models\TaskAssignment;
+use Modules\Tasks\Models\TaskChecklist;
+use Modules\Tasks\Models\TaskChecklistItem;
 use Modules\Tasks\Models\TaskComment;
+use Modules\Tasks\Models\TaskDependency;
+use Modules\Tasks\Models\TaskStakeholder;
+use Modules\Tasks\Models\TaskTimeLog;
 
 use function Livewire\before;
 
@@ -109,6 +120,42 @@ class AppServiceProvider extends ServiceProvider
 
         $this->registerFlashToastBridge();
         $this->registerAppShellRefresh();
+        $this->registerAuditObservers();
+    }
+
+    /**
+     * Record create/update/delete/restore on business models into audit_logs.
+     * Telemetry and ops log tables are intentionally excluded.
+     */
+    protected function registerAuditObservers(): void
+    {
+        $models = [
+            Task::class,
+            TaskAssignment::class,
+            TaskComment::class,
+            TaskChecklist::class,
+            TaskChecklistItem::class,
+            TaskStakeholder::class,
+            TaskDependency::class,
+            TaskTimeLog::class,
+            Issue::class,
+            IssueComment::class,
+            Customer::class,
+            Project::class,
+            ProjectAlias::class,
+            Employee::class,
+            User::class,
+            Conversation::class,
+            ConversationSession::class,
+            Message::class,
+            Attachment::class,
+            Role::class,
+            Permission::class,
+        ];
+
+        foreach ($models as $model) {
+            $model::observe(AuditableObserver::class);
+        }
     }
 
     /**
