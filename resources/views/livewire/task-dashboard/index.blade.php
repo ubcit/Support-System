@@ -178,7 +178,8 @@
                             <div class="flex items-center gap-2.5">
                                 {{-- Checkbox to Select All in Group --}}
                                 <input type="checkbox"
-                                       @click.stop.prevent="$store.taskSel.toggleAll({{ \Illuminate\Support\Js::from($groupTaskIds) }})"
+                                       @click.stop
+                                       @change.stop="$store.taskSel.setGroup({{ \Illuminate\Support\Js::from($groupTaskIds) }}, $event.target.checked)"
                                        :checked="$store.taskSel.allSelected({{ \Illuminate\Support\Js::from($groupTaskIds) }})"
                                        x-effect="$el.indeterminate = $store.taskSel.someSelected({{ \Illuminate\Support\Js::from($groupTaskIds) }})"
                                        class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer">
@@ -256,8 +257,10 @@
 
                                         {{-- Checkbox --}}
                                         <input type="checkbox"
-                                               @click.stop.prevent="$store.taskSel.toggle({{ $task->id }})"
-                                               :checked="$store.taskSel.isSelected({{ $task->id }})"
+                                               value="{{ $task->id }}"
+                                               x-model.number="$store.taskSel.selectedIds"
+                                               @click.stop
+                                               @change="$store.taskSel.syncSilent()"
                                                class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer shrink-0">
 
                                         {{-- Fast Priority Selector (Inline Pill) --}}
@@ -691,8 +694,10 @@
                                     <div class="flex justify-between items-start gap-2">
                                         <div class="flex items-start gap-2 flex-1 min-w-0">
                                             <input type="checkbox"
-                                                   @click.stop.prevent="$store.taskSel.toggle({{ $task->id }})"
-                                                   :checked="$store.taskSel.isSelected({{ $task->id }})"
+                                                   value="{{ $task->id }}"
+                                                   x-model.number="$store.taskSel.selectedIds"
+                                                   @click.stop
+                                                   @change="$store.taskSel.syncSilent()"
                                                    class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer shrink-0 mt-0.5">
                                             <h4 class="text-xs font-semibold text-gray-900 dark:text-white leading-snug line-clamp-2 break-words">
                                                 <a href="{{ \App\Helpers\TaskNav::detailUrl($task->id) }}" wire:navigate @click.stop class="hover:text-brand-600 dark:hover:text-brand-400 text-left">{{ $task->title }}</a>
@@ -851,7 +856,8 @@
                         <tr class="bg-gray-50 dark:bg-gray-800">
                             <th class="px-3 py-2.5 w-8 text-center text-gray-500 dark:text-gray-400">
                                 <input type="checkbox"
-                                       @click.stop.prevent="$store.taskSel.toggleAll({{ \Illuminate\Support\Js::from($allTaskIds) }})"
+                                       @click.stop
+                                       @change.stop="$store.taskSel.setGroup({{ \Illuminate\Support\Js::from($allTaskIds) }}, $event.target.checked)"
                                        :checked="$store.taskSel.allSelected({{ \Illuminate\Support\Js::from($allTaskIds) }})"
                                        x-effect="$el.indeterminate = $store.taskSel.someSelected({{ \Illuminate\Support\Js::from($allTaskIds) }})"
                                        class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer">
@@ -902,8 +908,10 @@
                                 :class="$store.taskSel.isSelected({{ $t->id }}) ? 'bg-brand-50/40 dark:bg-brand-950/20' : ''">
                                 <td class="px-3 py-2.5 text-center">
                                     <input type="checkbox"
-                                           @click.stop.prevent="$store.taskSel.toggle({{ $t->id }})"
-                                           :checked="$store.taskSel.isSelected({{ $t->id }})"
+                                           value="{{ $t->id }}"
+                                           x-model.number="$store.taskSel.selectedIds"
+                                           @click.stop
+                                           @change="$store.taskSel.syncSilent()"
                                            class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer">
                                 </td>
                                 <td class="px-3 py-2.5 font-mono text-gray-400 text-[11px]">#{{ $t->id }}</td>
@@ -1520,23 +1528,13 @@
                             const selected = list.filter((id) => this.selectedIds.includes(id)).length;
                             return selected > 0 && selected < list.length;
                         },
-                        toggle(id) {
-                            id = Number(id);
-                            const set = new Set(this.selectedIds);
-                            if (set.has(id)) set.delete(id);
-                            else set.add(id);
-                            this.selectedIds = Array.from(set);
-                            this.syncSilent();
-                            return this.isSelected(id);
-                        },
-                        toggleAll(ids) {
+                        setGroup(ids, checked) {
                             const list = (ids || []).map(Number);
                             const set = new Set(this.selectedIds);
-                            if (this.allSelected(list)) list.forEach((id) => set.delete(id));
-                            else list.forEach((id) => set.add(id));
+                            if (checked) list.forEach((id) => set.add(id));
+                            else list.forEach((id) => set.delete(id));
                             this.selectedIds = Array.from(set);
                             this.syncSilent();
-                            return this.allSelected(list);
                         },
                         clear() {
                             this.selectedIds = [];

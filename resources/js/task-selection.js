@@ -21,45 +21,32 @@ function createTaskSelStore() {
 
             return selected > 0 && selected < list.length;
         },
-        toggle(id) {
-            id = Number(id);
-            const set = new Set(this.selectedIds);
-            if (set.has(id)) {
-                set.delete(id);
-            } else {
-                set.add(id);
-            }
-            this.selectedIds = Array.from(set);
-            this.syncSilent();
-
-            return this.isSelected(id);
-        },
-        toggleAll(ids) {
+        /**
+         * Group / master checkbox: trust the native checked state from @change
+         * (no .prevent) so the clicked box paints instantly.
+         */
+        setGroup(ids, checked) {
             const list = (ids || []).map(Number);
             const set = new Set(this.selectedIds);
-            if (this.allSelected(list)) {
-                list.forEach((id) => set.delete(id));
-            } else {
+            if (checked) {
                 list.forEach((id) => set.add(id));
+            } else {
+                list.forEach((id) => set.delete(id));
             }
             this.selectedIds = Array.from(set);
             this.syncSilent();
-
-            return this.allSelected(list);
         },
         clear() {
             this.selectedIds = [];
             this.syncSilent();
         },
         /**
-         * Push selection into Livewire without a network round-trip / morph,
-         * so checkboxes stay Alpine-driven until a bulk action runs.
+         * Push selection into Livewire without a network round-trip / morph.
          */
         syncSilent(wire) {
             const ids = [...this.selectedIds];
             const target = wire || this.resolveWire();
             if (target && typeof target.set === 'function') {
-                // Third arg false = update snapshot only, no re-render.
                 target.set('selectedTasks', ids, false);
 
                 return;
@@ -76,7 +63,6 @@ function createTaskSelStore() {
 
             return window.Livewire.find(el.getAttribute('wire:id'));
         },
-        // Back-compat alias used by toolbar
         sync(wire) {
             this.syncSilent(wire);
         },
