@@ -717,7 +717,7 @@ class NativeTaskService
         return $this->createTask(array_filter([
             'title' => $title,
             'type' => 'task',
-            'priority' => 'medium',
+            'priority' => $extra['priority'] ?? 'medium',
             'workflow_id' => $state?->workflow_id,
             'current_state_id' => $state?->id,
             'project_id' => $extra['project_id'] ?? null,

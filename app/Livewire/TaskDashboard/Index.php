@@ -863,8 +863,13 @@ class Index extends Component
         }
     }
 
-    public function quickCreateTask(string $title, ?int $stateId = null): ?int
-    {
+    public function quickCreateTask(
+        string $title,
+        ?int $stateId = null,
+        ?int $projectId = null,
+        ?string $priority = null,
+        ?int $assigneeId = null,
+    ): ?int {
         if (! $this->canCreateTasks()) {
             return null;
         }
@@ -875,10 +880,20 @@ class Index extends Component
 
         $actor = $this->actor();
         $extra = [];
-        if ($this->filterProject) {
+
+        if ($projectId) {
+            $extra['project_id'] = $projectId;
+        } elseif ($this->filterProject) {
             $extra['project_id'] = (int) $this->filterProject;
         }
-        if ($this->scope === 'mine' && $actor) {
+
+        if ($priority && in_array($priority, ['low', 'medium', 'high', 'urgent'], true)) {
+            $extra['priority'] = $priority;
+        }
+
+        if ($assigneeId) {
+            $extra['assignee_ids'] = [$assigneeId];
+        } elseif ($this->scope === 'mine' && $actor) {
             $extra['assignee_ids'] = [$actor->id];
         }
 

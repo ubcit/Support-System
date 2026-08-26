@@ -1,4 +1,11 @@
-<div data-task-dashboard data-current-view="{{ $currentView }}">
+<div data-task-dashboard
+     data-current-view="{{ $currentView }}"
+     x-data
+     x-init="
+        if ($store.taskSel) {
+            $store.taskSel.hydrate(@js(array_values(array_map('intval', $selectedTasks))));
+        }
+     ">
     <x-common.page-breadcrumb pageTitle="My Tasks" compact>
         <x-slot:subtitle>{{ $filterSubtitle }}</x-slot:subtitle>
         <x-slot:actions>
@@ -170,8 +177,8 @@
                             <div class="flex items-center gap-2.5">
                                 {{-- Checkbox to Select All in Group --}}
                                 <input type="checkbox"
-                                       @change="$wire.selectAllTasks({{ json_encode($groupTaskIds) }})"
-                                       {{ $isGroupAllSelected ? 'checked' : '' }}
+                                       @click.stop.prevent="$store.taskSel.toggleAll({{ \Illuminate\Support\Js::from($groupTaskIds) }}, $wire)"
+                                       :checked="$store.taskSel.allSelected({{ \Illuminate\Support\Js::from($groupTaskIds) }})"
                                        class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer">
 
                                 <button @click="collapsed = !collapsed" class="flex items-center gap-2 text-left">
@@ -221,7 +228,8 @@
                                      data-task-id="{{ $task->id }}"
                                      wire:key="task-card-{{ $task->id }}"
                                      x-on:dragstart="window.__draggingTaskEl = $event.currentTarget; $event.dataTransfer.setData('text/plain', '{{ $task->id }}|{{ $task->mustPassReview() ? '1' : '0' }}'); $event.dataTransfer.effectAllowed = 'move'"
-                                     class="px-3.5 py-2 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition relative {{ $isSelected ? 'bg-brand-50 dark:bg-brand-950' : '' }} group cursor-grab active:cursor-grabbing select-none rounded-lg border border-transparent hover:border-gray-200 dark:hover:border-gray-800">
+                                     class="px-3.5 py-2 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition relative group cursor-grab active:cursor-grabbing select-none rounded-lg border border-transparent hover:border-gray-200 dark:hover:border-gray-800"
+                                     :class="$store.taskSel.isSelected({{ $task->id }}) ? 'bg-brand-50 dark:bg-brand-950' : ''">
 
                                     {{-- Left Section: Drag Handle, Checkbox, Priority & Title --}}
                                     <div class="flex items-center gap-2.5 min-w-0 flex-1">
@@ -246,8 +254,8 @@
 
                                         {{-- Checkbox --}}
                                         <input type="checkbox"
-                                               wire:click.stop="toggleSelectTask({{ $task->id }})"
-                                               {{ $isSelected ? 'checked' : '' }}
+                                               @click.stop.prevent="$store.taskSel.toggle({{ $task->id }}, $wire)"
+                                               :checked="$store.taskSel.isSelected({{ $task->id }})"
                                                class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer shrink-0">
 
                                         {{-- Fast Priority Selector (Inline Pill) --}}
@@ -532,6 +540,14 @@
                                 <p class="px-4 py-3 text-xs text-gray-400 italic">No tasks in this group.</p>
                             @endforelse
 
+                            @php
+                                $quickStateId = (($group['type'] ?? '') === 'status') ? ($group['state_id'] ?? null) : null;
+                                $quickProjectId = (($group['type'] ?? '') === 'project' && is_numeric($groupKey)) ? (int) $groupKey : null;
+                                $quickPriority = (($group['type'] ?? '') === 'priority' && is_string($groupKey) && in_array($groupKey, ['low', 'medium', 'high', 'urgent'], true))
+                                    ? $groupKey
+                                    : null;
+                                $quickAssigneeId = (($group['type'] ?? '') === 'assignee' && is_numeric($groupKey)) ? (int) $groupKey : null;
+                            @endphp
                             <div x-data="{ open: false, title: '' }" data-quick-add class="px-3 pt-1" @mousedown.stop @click.stop>
                                 <button x-show="!open" @click="open = true" type="button" class="w-full rounded-lg py-1.5 text-left text-xs font-medium text-gray-400 hover:bg-gray-50 hover:text-brand-600 dark:hover:bg-gray-800 dark:hover:text-brand-400">
                                     + Add task
@@ -544,8 +560,14 @@
                                                 title = '';
                                                 open = false;
                                                 const container = $el.closest('[data-task-drop-list]');
-                                                const tempId = window.optimisticCreateTask({ title: t, view: 'list', container });
-                                                $wire.quickCreateTask(t, {{ ($group['state_id'] ?? 'null') }}).then((id) => window.finishOptimisticCreate(tempId, id))
+                                                const tempId = window.optimisticCreateTask({ title: t, view: 'list', container, priority: {{ \Illuminate\Support\Js::from($quickPriority ?? 'medium') }} });
+                                                $wire.quickCreateTask(
+                                                    t,
+                                                    {{ $quickStateId ?? 'null' }},
+                                                    {{ $quickProjectId ?? 'null' }},
+                                                    {{ $quickPriority ? \Illuminate\Support\Js::from($quickPriority) : 'null' }},
+                                                    {{ $quickAssigneeId ?? 'null' }}
+                                                ).then((id) => window.finishOptimisticCreate(tempId, id))
                                                     .catch(() => window.removeOptimisticCreate(tempId));
                                            "
                                            @keydown.escape="open=false"
@@ -560,8 +582,14 @@
                                                 title = '';
                                                 open = false;
                                                 const container = $el.closest('[data-task-drop-list]');
-                                                const tempId = window.optimisticCreateTask({ title: t, view: 'list', container });
-                                                $wire.quickCreateTask(t, {{ ($group['state_id'] ?? 'null') }}).then((id) => window.finishOptimisticCreate(tempId, id))
+                                                const tempId = window.optimisticCreateTask({ title: t, view: 'list', container, priority: {{ \Illuminate\Support\Js::from($quickPriority ?? 'medium') }} });
+                                                $wire.quickCreateTask(
+                                                    t,
+                                                    {{ $quickStateId ?? 'null' }},
+                                                    {{ $quickProjectId ?? 'null' }},
+                                                    {{ $quickPriority ? \Illuminate\Support\Js::from($quickPriority) : 'null' }},
+                                                    {{ $quickAssigneeId ?? 'null' }}
+                                                ).then((id) => window.finishOptimisticCreate(tempId, id))
                                                     .catch(() => window.removeOptimisticCreate(tempId));
                                             "
                                             class="rounded-xl bg-brand-500 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Add</button>
@@ -654,14 +682,15 @@
                                      data-task-id="{{ $task->id }}"
                                      wire:key="task-card-{{ $task->id }}"
                                      x-on:dragstart="window.__draggingTaskEl = $event.currentTarget; $event.dataTransfer.setData('text/plain', '{{ $task->id }}|{{ $task->mustPassReview() ? '1' : '0' }}'); $event.dataTransfer.effectAllowed = 'move'"
-                                     class="bg-white dark:bg-gray-800 rounded-xl border-l-[3.5px] {{ $priBorder }} border border-gray-200/80 dark:border-white/10 shadow-2xs hover:shadow-md hover:ring-1 hover:ring-brand-500/30 transition-all p-3 space-y-2 group cursor-grab active:cursor-grabbing select-none {{ $isSelected ? 'ring-2 ring-brand-500 bg-brand-50/20 dark:bg-brand-950/20' : '' }}">
+                                     class="bg-white dark:bg-gray-800 rounded-xl border-l-[3.5px] {{ $priBorder }} border border-gray-200/80 dark:border-white/10 shadow-2xs hover:shadow-md hover:ring-1 hover:ring-brand-500/30 transition-all p-3 space-y-2 group cursor-grab active:cursor-grabbing select-none"
+                                     :class="$store.taskSel.isSelected({{ $task->id }}) ? 'ring-2 ring-brand-500 bg-brand-50/20 dark:bg-brand-950/20' : ''">
 
                                     {{-- Card Top: Checkbox + Title + Menu --}}
                                     <div class="flex justify-between items-start gap-2">
                                         <div class="flex items-start gap-2 flex-1 min-w-0">
                                             <input type="checkbox"
-                                                   wire:click.stop="toggleSelectTask({{ $task->id }})"
-                                                   {{ $isSelected ? 'checked' : '' }}
+                                                   @click.stop.prevent="$store.taskSel.toggle({{ $task->id }}, $wire)"
+                                                   :checked="$store.taskSel.isSelected({{ $task->id }})"
                                                    class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer shrink-0 mt-0.5">
                                             <h4 class="text-xs font-semibold text-gray-900 dark:text-white leading-snug line-clamp-2 break-words">
                                                 <a href="{{ \App\Helpers\TaskNav::detailUrl($task->id) }}" wire:navigate @click.stop class="hover:text-brand-600 dark:hover:text-brand-400 text-left">{{ $task->title }}</a>
@@ -820,8 +849,8 @@
                         <tr class="bg-gray-50 dark:bg-gray-800">
                             <th class="px-3 py-2.5 w-8 text-center text-gray-500 dark:text-gray-400">
                                 <input type="checkbox"
-                                       @change="$wire.selectAllTasks({{ json_encode($allTaskIds) }})"
-                                       {{ $isMasterAllSelected ? 'checked' : '' }}
+                                       @click.stop.prevent="$store.taskSel.toggleAll({{ \Illuminate\Support\Js::from($allTaskIds) }}, $wire)"
+                                       :checked="$store.taskSel.allSelected({{ \Illuminate\Support\Js::from($allTaskIds) }})"
                                        class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer">
                             </th>
                             @foreach([
@@ -865,11 +894,13 @@
                                 };
                                 $progress = $t->calculateProgress();
                             @endphp
-                            <tr class="hover:bg-gray-50/80 dark:hover:bg-white/[0.03] transition {{ $isSelected ? 'bg-brand-50/40 dark:bg-brand-950/20' : '' }} group">
+                            <tr data-task-id="{{ $t->id }}"
+                                class="hover:bg-gray-50/80 dark:hover:bg-white/[0.03] transition group"
+                                :class="$store.taskSel.isSelected({{ $t->id }}) ? 'bg-brand-50/40 dark:bg-brand-950/20' : ''">
                                 <td class="px-3 py-2.5 text-center">
                                     <input type="checkbox"
-                                           wire:click="toggleSelectTask({{ $t->id }})"
-                                           {{ $isSelected ? 'checked' : '' }}
+                                           @click.stop.prevent="$store.taskSel.toggle({{ $t->id }}, $wire)"
+                                           :checked="$store.taskSel.isSelected({{ $t->id }})"
                                            class="w-4 h-4 text-brand-600 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-brand-500 cursor-pointer">
                                 </td>
                                 <td class="px-3 py-2.5 font-mono text-gray-400 text-[11px]">#{{ $t->id }}</td>
@@ -1150,19 +1181,24 @@
         </div>
 
         {{-- ═══════════════════════════════════════════════════════════════ --}}
-        {{-- FLOATING CLICKUP MULTITASK TOOLBAR                             --}}
+        {{-- FLOATING CLICKUP MULTITASK TOOLBAR (always mounted; Alpine show) --}}
         {{-- ═══════════════════════════════════════════════════════════════ --}}
-        @if(count($selectedTasks) > 0)
-            <template x-teleport="body">
-                <div x-data="{ openStatus: false, openPriority: false, openAssignee: false, openDueDate: false }"
+        <template x-teleport="body">
+                <div x-show="$store.taskSel.selectedIds.length > 0"
+                     x-cloak
+                     x-data="{ openStatus: false, openPriority: false, openAssignee: false, openDueDate: false }"
+                     @mousedown="$store.taskSel.sync($wire)"
                      x-transition:enter="transition ease-out duration-200"
                      x-transition:enter-start="opacity-0 translate-y-6 scale-95"
                      x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                     x-transition:leave="transition ease-in duration-150"
+                     x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                     x-transition:leave-end="opacity-0 translate-y-6 scale-95"
                      class="fixed bottom-6 inset-x-0 mx-auto w-max max-w-[calc(100vw-2rem)] z-[9999] flex items-center justify-center gap-2 p-2 bg-white/95 dark:bg-gray-900/95 text-gray-900 dark:text-white backdrop-blur-md rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl ring-1 ring-gray-950/5 dark:ring-white/10 text-xs whitespace-nowrap">
 
                     {{-- Selection Count Badge --}}
                     <div class="flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 text-white rounded-xl font-bold shadow-2xs">
-                        <span>{{ count($selectedTasks) }}</span>
+                        <span x-text="$store.taskSel.selectedIds.length"></span>
                         <span>Selected</span>
                     </div>
 
@@ -1176,7 +1212,7 @@
                         </button>
                         <x-ui.confirm-button
                             heading="Delete forever?"
-                            message="{{ count($selectedTasks) }} {{ count($selectedTasks) === 1 ? 'task' : 'tasks' }} will be permanently deleted."
+                            message="Selected tasks will be permanently deleted."
                             confirm-label="Delete forever"
                             method="bulkForceDelete"
                             variant="danger-ghost"
@@ -1288,7 +1324,7 @@
                     @if($canDelete)
                     <x-ui.confirm-button
                         heading="Move to Trash?"
-                        message="{{ count($selectedTasks) }} {{ count($selectedTasks) === 1 ? 'task' : 'tasks' }} will be moved to Trash. You can restore within 30 days."
+                        message="Selected tasks will be moved to Trash. You can restore within 30 days."
                         confirm-label="Move to Trash"
                         method="bulkDelete"
                         variant="danger-ghost"
@@ -1301,12 +1337,15 @@
                     @endif
 
                     {{-- Deselect All Button --}}
-                    <button wire:click="clearSelection" class="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 text-gray-400 hover:text-gray-900 dark:hover:text-white transition" title="Clear selection" aria-label="Clear selection">
+                    <button type="button"
+                            @click="$store.taskSel.clear($wire)"
+                            class="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 text-gray-400 hover:text-gray-900 dark:hover:text-white transition"
+                            title="Clear selection"
+                            aria-label="Clear selection">
                         <x-heroicon-m-x-mark class="w-4 h-4"/>
                     </button>
                 </div>
-            </template>
-        @endif
+        </template>
 
     </div>
 
@@ -1452,6 +1491,67 @@
 
     @once
         <script>
+            // taskSel Alpine store is registered from resources/js/task-selection.js
+            // Keep a blade fallback when Vite assets are stale / missing.
+            (function registerTaskSelStoreFallback() {
+                const defineStore = () => {
+                    if (window.__taskSelStoreDefined || !window.Alpine || typeof Alpine.store !== 'function') {
+                        return;
+                    }
+                    window.__taskSelStoreDefined = true;
+                    Alpine.store('taskSel', {
+                        selectedIds: [],
+                        hydrate(ids) {
+                            this.selectedIds = (Array.isArray(ids) ? ids : []).map(Number);
+                        },
+                        isSelected(id) {
+                            return this.selectedIds.includes(Number(id));
+                        },
+                        allSelected(ids) {
+                            const list = (ids || []).map(Number);
+                            return list.length > 0 && list.every((id) => this.selectedIds.includes(id));
+                        },
+                        toggle(id, wire) {
+                            id = Number(id);
+                            const i = this.selectedIds.indexOf(id);
+                            if (i >= 0) this.selectedIds.splice(i, 1);
+                            else this.selectedIds.push(id);
+                            this.sync(wire);
+                        },
+                        toggleAll(ids, wire) {
+                            const list = (ids || []).map(Number);
+                            if (this.allSelected(list)) {
+                                this.selectedIds = this.selectedIds.filter((id) => !list.includes(id));
+                            } else {
+                                const set = new Set(this.selectedIds);
+                                list.forEach((id) => set.add(id));
+                                this.selectedIds = Array.from(set);
+                            }
+                            this.sync(wire);
+                        },
+                        clear(wire) {
+                            this.selectedIds = [];
+                            this.sync(wire);
+                        },
+                        sync(wire) {
+                            const ids = [...this.selectedIds];
+                            if (wire && typeof wire.set === 'function') {
+                                wire.set('selectedTasks', ids);
+                                return;
+                            }
+                            const el = document.querySelector('[data-task-dashboard]');
+                            if (!el || !window.Livewire) return;
+                            const component = window.Livewire.find(el.getAttribute('wire:id'));
+                            if (component && typeof component.$set === 'function') {
+                                component.$set('selectedTasks', ids);
+                            }
+                        },
+                    });
+                };
+                document.addEventListener('alpine:init', defineStore);
+                defineStore();
+            })();
+
             window.__pendingOptimisticCreates = 0;
             window.__optimisticCreateEntries = window.__optimisticCreateEntries || new Map();
 

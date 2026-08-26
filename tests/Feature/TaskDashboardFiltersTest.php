@@ -266,6 +266,24 @@ class TaskDashboardFiltersTest extends TestCase
         ]);
     }
 
+    public function test_quick_create_task_inherits_project_from_group_context(): void
+    {
+        $boss = User::where('email', 'boss@thespace.app')->firstOrFail();
+        $project = Project::factory()->create(['name' => 'Grouped Project']);
+
+        $this->actingAs($boss);
+
+        \Livewire\Livewire::test(\App\Livewire\TaskDashboard\Index::class)
+            ->set('groupBy', 'project')
+            ->call('quickCreateTask', 'Task in project group', null, $project->id)
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('tasks', [
+            'title' => 'Task in project group',
+            'project_id' => $project->id,
+        ]);
+    }
+
     public function test_board_and_calendar_views_render_and_calendar_shows_empty_copy(): void
     {
         $boss = User::where('email', 'boss@thespace.app')->firstOrFail();

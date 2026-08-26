@@ -27,8 +27,8 @@
     "file": "assets/instrument-sans-600-normal-B9e8oLYv.woff",
     "src": "_instrument-sans-600-normal-B9e8oLYv.woff"
   },
-  "_interaction-Dtg-dG0w.js": {
-    "file": "assets/interaction-Dtg-dG0w.js",
+  "_interaction-C2hRbM1k.js": {
+    "file": "assets/interaction-C2hRbM1k.js",
     "name": "interaction",
     "imports": [
       "resources/js/app.js"
@@ -44,7 +44,7 @@
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-BNz159bG.js",
+    "file": "assets/app-BHwoVcH7.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -64,13 +64,13 @@
     ]
   },
   "resources/js/tailadmin/components/calendar-init.js": {
-    "file": "assets/calendar-init-h_DvatjK.js",
+    "file": "assets/calendar-init-CdwesWzk.js",
     "name": "calendar-init",
     "src": "resources/js/tailadmin/components/calendar-init.js",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_interaction-Dtg-dG0w.js"
+      "_interaction-C2hRbM1k.js"
     ]
   },
   "resources/js/tailadmin/components/chart/chart-1.js": {
@@ -119,13 +119,13 @@
     ]
   },
   "resources/js/tailadmin/components/task-schedule.js": {
-    "file": "assets/task-schedule-D4HMXNIj.js",
+    "file": "assets/task-schedule-DJEo2j04.js",
     "name": "task-schedule",
     "src": "resources/js/tailadmin/components/task-schedule.js",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_interaction-Dtg-dG0w.js"
+      "_interaction-C2hRbM1k.js"
     ]
   }
 }
