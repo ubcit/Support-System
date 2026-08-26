@@ -611,7 +611,7 @@ class Index extends Component
         $this->resetTaskForm();
     }
 
-    public function createTask(): void
+    public function createTask(): ?int
     {
         $this->authorizePermission('tasks.create');
         $this->validate([
@@ -633,7 +633,7 @@ class Index extends Component
             $assigneeIds = [$actor->id];
         }
 
-        app(NativeTaskService::class)->createTask([
+        $task = app(NativeTaskService::class)->createTask([
             'title' => $this->formTitle,
             'project_id' => $this->formProjectId,
             'priority' => $this->formPriority,
@@ -651,6 +651,8 @@ class Index extends Component
         $this->showCreateModal = false;
         $this->resetTaskForm();
         session()->flash('success', 'Task created successfully');
+
+        return $task->id;
     }
 
     public function updateTask(): void
@@ -861,10 +863,14 @@ class Index extends Component
         }
     }
 
-    public function quickCreateTask(string $title, ?int $stateId = null): void
+    public function quickCreateTask(string $title, ?int $stateId = null): ?int
     {
+        if (! $this->canCreateTasks()) {
+            return null;
+        }
+
         if (empty(trim($title))) {
-            return;
+            return null;
         }
 
         $actor = $this->actor();
@@ -876,31 +882,35 @@ class Index extends Component
             $extra['assignee_ids'] = [$actor->id];
         }
 
-        app(NativeTaskService::class)->quickCreate($title, $stateId, $actor, $extra);
+        $task = app(NativeTaskService::class)->quickCreate($title, $stateId, $actor, $extra);
         session()->flash('success', 'Task created.');
+
+        return $task->id;
     }
 
-    public function quickCreateSubtask(int $parentId, string $title): void
+    public function quickCreateSubtask(int $parentId, string $title): ?int
     {
         if (! $this->canCreateTasks()) {
-            return;
+            return null;
         }
 
         $title = trim($title);
         if ($title === '') {
-            return;
+            return null;
         }
 
         $parent = Task::query()->whereNull('parent_id')->find($parentId);
         if (! $parent) {
-            return;
+            return null;
         }
 
-        app(NativeTaskService::class)->createSubtask($parent, [
+        $task = app(NativeTaskService::class)->createSubtask($parent, [
             'title' => $title,
         ], $this->actor());
 
         session()->flash('success', 'Subtask created.');
+
+        return $task->id;
     }
 
     public function editTask(): void

@@ -1,4 +1,4 @@
-<div wire:poll.5s>
+<div data-task-dashboard data-current-view="{{ $currentView }}">
     <x-common.page-breadcrumb pageTitle="My Tasks" compact>
         <x-slot:subtitle>{{ $filterSubtitle }}</x-slot:subtitle>
         <x-slot:actions>
@@ -132,6 +132,8 @@
                         $groupZIndex = max(1, 10 - $loop->index);
                     @endphp
                     <div x-data="{ collapsed: false, isOver: false }"
+                         data-state-id="{{ $group['state_id'] ?? '' }}"
+                         data-group-type="{{ $group['type'] ?? '' }}"
                          x-on:dragover.prevent="isOver = true; $event.dataTransfer.dropEffect = 'move'"
                          x-on:dragleave.prevent="isOver = false"
                          x-on:drop.prevent="
@@ -443,7 +445,7 @@
                                 </div>
 
                                 {{-- Nested subtasks (list view only) --}}
-                                <div x-show="expanded" x-cloak class="ml-8 space-y-0.5 border-l border-gray-200 dark:border-gray-700 pl-2">
+                                <div x-show="expanded" x-cloak class="ml-8 space-y-0.5 border-l border-gray-200 dark:border-gray-700 pl-2" data-subtask-list="{{ $task->id }}">
                                     @foreach($childTasks as $sub)
                                         @php
                                             $subStatusBadge = match ($sub->statusKey()) {
@@ -484,20 +486,40 @@
 
                                     @if($canCreate)
                                         <div x-data="{ open: false, title: '' }" class="px-3 py-1" @mousedown.stop @click.stop>
-                                            <button x-show="!open" @click="open = true" type="button"
+                                            <button x-show="!open" @click="open = true; expanded = true" type="button"
                                                     class="w-full rounded-lg py-1 text-left text-[11px] font-medium text-gray-400 hover:text-brand-600 dark:hover:text-brand-400">
                                                 + Add subtask
                                             </button>
                                             <div x-show="open" x-cloak class="flex gap-1.5">
                                                 <input x-model="title"
-                                                       @keydown.enter="$wire.quickCreateSubtask({{ $task->id }}, title); title=''; open=false"
+                                                       @keydown.enter="
+                                                            const t = title.trim();
+                                                            if (!t) return;
+                                                            title = '';
+                                                            open = false;
+                                                            expanded = true;
+                                                            const list = $el.closest('[data-task-row]')?.querySelector('[data-subtask-list]');
+                                                            const tempId = window.optimisticCreateTask({ title: t, view: 'subtask', container: list });
+                                                            $wire.quickCreateSubtask({{ $task->id }}, t).then((id) => window.finishOptimisticCreate(tempId, id))
+                                                                .catch(() => window.removeOptimisticCreate(tempId));
+                                                       "
                                                        @keydown.escape="open=false"
                                                        x-ref="subInput"
                                                        x-init="$watch('open', v => { if(v) $nextTick(() => $refs.subInput.focus()) })"
                                                        placeholder="Subtask name..."
                                                        class="flex-1 rounded-xl border-gray-200 py-1 px-2 text-[11px] focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800">
                                                 <button type="button"
-                                                        @click="$wire.quickCreateSubtask({{ $task->id }}, title); title=''; open=false"
+                                                        @click="
+                                                            const t = title.trim();
+                                                            if (!t) return;
+                                                            title = '';
+                                                            open = false;
+                                                            expanded = true;
+                                                            const list = $el.closest('[data-task-row]')?.querySelector('[data-subtask-list]');
+                                                            const tempId = window.optimisticCreateTask({ title: t, view: 'subtask', container: list });
+                                                            $wire.quickCreateSubtask({{ $task->id }}, t).then((id) => window.finishOptimisticCreate(tempId, id))
+                                                                .catch(() => window.removeOptimisticCreate(tempId));
+                                                        "
                                                         class="rounded-xl bg-brand-500 px-2 py-1 text-[11px] font-bold text-white hover:bg-brand-600">
                                                     Add
                                                 </button>
@@ -510,19 +532,39 @@
                                 <p class="px-4 py-3 text-xs text-gray-400 italic">No tasks in this group.</p>
                             @endforelse
 
-                            <div x-data="{ open: false, title: '' }" class="px-3 pt-1" @mousedown.stop @click.stop>
+                            <div x-data="{ open: false, title: '' }" data-quick-add class="px-3 pt-1" @mousedown.stop @click.stop>
                                 <button x-show="!open" @click="open = true" type="button" class="w-full rounded-lg py-1.5 text-left text-xs font-medium text-gray-400 hover:bg-gray-50 hover:text-brand-600 dark:hover:bg-gray-800 dark:hover:text-brand-400">
                                     + Add task
                                 </button>
                                 <div x-show="open" x-cloak class="flex gap-1.5">
                                     <input x-model="title"
-                                           @keydown.enter="$wire.quickCreateTask(title, {{ ($group['state_id'] ?? 'null') }}); title=''; open=false"
+                                           @keydown.enter="
+                                                const t = title.trim();
+                                                if (!t) return;
+                                                title = '';
+                                                open = false;
+                                                const container = $el.closest('[data-task-drop-list]');
+                                                const tempId = window.optimisticCreateTask({ title: t, view: 'list', container });
+                                                $wire.quickCreateTask(t, {{ ($group['state_id'] ?? 'null') }}).then((id) => window.finishOptimisticCreate(tempId, id))
+                                                    .catch(() => window.removeOptimisticCreate(tempId));
+                                           "
                                            @keydown.escape="open=false"
                                            x-ref="quickInput"
                                            x-init="$watch('open', v => { if(v) $nextTick(() => $refs.quickInput.focus()) })"
                                            placeholder="Task name..."
                                            class="flex-1 rounded-xl border-gray-200 py-1.5 px-2.5 text-xs focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800">
-                                    <button type="button" @click="$wire.quickCreateTask(title, {{ ($group['state_id'] ?? 'null') }}); title=''; open=false" class="rounded-xl bg-brand-500 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Add</button>
+                                    <button type="button"
+                                            @click="
+                                                const t = title.trim();
+                                                if (!t) return;
+                                                title = '';
+                                                open = false;
+                                                const container = $el.closest('[data-task-drop-list]');
+                                                const tempId = window.optimisticCreateTask({ title: t, view: 'list', container });
+                                                $wire.quickCreateTask(t, {{ ($group['state_id'] ?? 'null') }}).then((id) => window.finishOptimisticCreate(tempId, id))
+                                                    .catch(() => window.removeOptimisticCreate(tempId));
+                                            "
+                                            class="rounded-xl bg-brand-500 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Add</button>
                                 </div>
                             </div>
                         </div>
@@ -547,6 +589,8 @@
                             };
                     @endphp
                     <div x-data="{ isOver: false }"
+                         data-state-id="{{ $col['state_id'] }}"
+                         data-state-type="{{ $col['state_type'] }}"
                          x-on:dragover.prevent="isOver = true; $event.dataTransfer.dropEffect = 'move'"
                          x-on:dragleave.prevent="isOver = false"
                          x-on:drop.prevent="
@@ -724,14 +768,39 @@
                         </div>
 
                         {{-- Quick Add Input at Column Bottom --}}
-                        <div class="p-2.5 pt-0">
+                        <div class="p-2.5 pt-0" data-quick-add>
                             <div x-data="{ open: false, title: '' }" class="mt-1">
                                 <button x-show="!open" @click="open = true" class="w-full py-1.5 text-xs text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 font-medium flex items-center justify-center gap-1 rounded-lg hover:bg-white dark:hover:bg-gray-800 transition">
                                     <x-heroicon-o-plus class="w-3.5 h-3.5"/> Add Task
                                 </button>
                                 <div x-show="open" x-cloak class="flex gap-1.5">
-                                    <input x-model="title" @keydown.enter="$wire.quickCreateTask(title, {{ $col['state_id'] }}); title=''; open=false" @keydown.escape="open=false" x-ref="input" x-init="$watch('open', v => { if(v) $nextTick(() => $refs.input.focus()) })" placeholder="Task name..." class="flex-1 text-xs rounded-xl border-gray-200 dark:border-gray-700 dark:bg-gray-800 py-1.5 px-2.5 focus:ring-brand-500">
-                                    <button @click="$wire.quickCreateTask(title, {{ $col['state_id'] }}); title=''; open=false" class="px-2.5 py-1.5 bg-brand-500 text-white text-xs rounded-xl font-bold hover:bg-brand-600 transition">Add</button>
+                                    <input x-model="title"
+                                           @keydown.enter="
+                                                const t = title.trim();
+                                                if (!t) return;
+                                                title = '';
+                                                open = false;
+                                                const container = $el.closest('[data-state-id]')?.querySelector('[data-task-drop-list]');
+                                                const tempId = window.optimisticCreateTask({ title: t, view: 'board', container });
+                                                $wire.quickCreateTask(t, {{ $col['state_id'] }}).then((id) => window.finishOptimisticCreate(tempId, id))
+                                                    .catch(() => window.removeOptimisticCreate(tempId));
+                                           "
+                                           @keydown.escape="open=false"
+                                           x-ref="input"
+                                           x-init="$watch('open', v => { if(v) $nextTick(() => $refs.input.focus()) })"
+                                           placeholder="Task name..."
+                                           class="flex-1 text-xs rounded-xl border-gray-200 dark:border-gray-700 dark:bg-gray-800 py-1.5 px-2.5 focus:ring-brand-500">
+                                    <button @click="
+                                                const t = title.trim();
+                                                if (!t) return;
+                                                title = '';
+                                                open = false;
+                                                const container = $el.closest('[data-state-id]')?.querySelector('[data-task-drop-list]');
+                                                const tempId = window.optimisticCreateTask({ title: t, view: 'board', container });
+                                                $wire.quickCreateTask(t, {{ $col['state_id'] }}).then((id) => window.finishOptimisticCreate(tempId, id))
+                                                    .catch(() => window.removeOptimisticCreate(tempId));
+                                            "
+                                            class="px-2.5 py-1.5 bg-brand-500 text-white text-xs rounded-xl font-bold hover:bg-brand-600 transition">Add</button>
                                 </div>
                             </div>
                         </div>
@@ -784,7 +853,7 @@
                             @endforeach
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-white/5">
+                    <tbody data-task-table-body class="divide-y divide-gray-100 dark:divide-white/5">
                         @foreach($tasks as $t)
                             @php
                                 $isSelected = in_array($t->id, $selectedTasks);
@@ -978,9 +1047,11 @@
                             $dayTasks = $tasks->filter(fn($t) => $t->due_date && $t->due_date->format('Y-m-d') === $currentDate);
                             $isToday = $currentDate === now()->format('Y-m-d');
                         @endphp
-                        <div @click="$wire.showCreateModal = true; $wire.openCreateModal('{{ $currentDate }}')" class="min-h-[95px] p-1.5 border-b border-r border-gray-100 dark:border-white/5 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition {{ $isToday ? 'bg-brand-50/40 dark:bg-brand-950/20' : '' }}">
+                        <div @click="$wire.showCreateModal = true; $wire.openCreateModal('{{ $currentDate }}')"
+                             data-cal-date="{{ $currentDate }}"
+                             class="min-h-[95px] p-1.5 border-b border-r border-gray-100 dark:border-white/5 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition {{ $isToday ? 'bg-brand-50/40 dark:bg-brand-950/20' : '' }}">
                             <span class="text-[10px] font-bold {{ $isToday ? 'bg-brand-500 text-white w-5 h-5 rounded-full inline-flex items-center justify-center' : 'text-gray-400 dark:text-gray-500' }}">{{ $day }}</span>
-                            <div class="space-y-1 mt-1">
+                            <div class="space-y-1 mt-1" data-cal-day-tasks>
                                 @foreach($dayTasks->take(3) as $dt)
                                     @php
                                         $dtColor = match ($dt->priority?->value) {
@@ -1014,7 +1085,7 @@
 
         @elseif($currentView === 'timeline')
             {{-- ─────────── GANTT TIMELINE VIEW ─────────── --}}
-            <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-white/10 ring-1 ring-gray-950/5 dark:ring-white/10 shadow-sm p-5 space-y-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-white/10 ring-1 ring-gray-950/5 dark:ring-white/10 shadow-sm p-5 space-y-4" data-timeline-list>
                 <div class="flex items-center justify-between mb-2">
                     <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         <x-heroicon-o-chart-bar class="w-4 h-4 text-brand-500"/> Project Timeline
@@ -1240,7 +1311,36 @@
     </div>
 
     <x-ui.slide-form-modal entangle="showCreateModal" loading-target="openCreateModal" title="New Task" description="Create a task and optionally assign it to a project and teammate." close-method="$set('showCreateModal', false)" size="lg">
-        <form id="modal-create-task" wire:submit="createTask" class="space-y-4">
+        <form id="modal-create-task"
+              x-on:submit.prevent="
+                    const form = $event.currentTarget;
+                    const titleInput = form.querySelector('input');
+                    const title = String((titleInput && titleInput.value) || $wire.formTitle || '').trim();
+                    if (!title) {
+                        $wire.createTask();
+                        return;
+                    }
+                    if (titleInput) {
+                        $wire.formTitle = title;
+                    }
+                    const priority = $wire.formPriority || 'medium';
+                    const dueDate = $wire.formDueDate || null;
+                    const startDate = $wire.formStartDate || null;
+                    $wire.showCreateModal = false;
+                    const tempId = window.optimisticCreateFromModal({ title, priority, dueDate, startDate });
+                    $wire.createTask().then((id) => {
+                        if (!id) {
+                            window.removeOptimisticCreate(tempId);
+                            $wire.showCreateModal = true;
+                            return;
+                        }
+                        window.finishOptimisticCreate(tempId, id);
+                    }).catch(() => {
+                        window.removeOptimisticCreate(tempId);
+                        $wire.showCreateModal = true;
+                    });
+              "
+              class="space-y-4">
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Title</label>
                 <input wire:model="formTitle" class="h-11 w-full rounded-lg border border-gray-300 px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
@@ -1352,6 +1452,9 @@
 
     @once
         <script>
+            window.__pendingOptimisticCreates = 0;
+            window.__optimisticCreateEntries = window.__optimisticCreateEntries || new Map();
+
             window.optimisticMoveTask = function (taskId, dropListEl) {
                 if (!dropListEl) return;
                 const el = window.__draggingTaskEl
@@ -1362,6 +1465,379 @@
                 dropListEl.appendChild(moveEl);
                 window.__draggingTaskEl = null;
             };
+
+            function priorityDotClass(priority) {
+                switch (priority) {
+                    case 'urgent': return 'bg-red-500';
+                    case 'high': return 'bg-amber-500';
+                    case 'low': return 'bg-gray-400';
+                    default: return 'bg-blue-400';
+                }
+            }
+
+            function priorityBorderClass(priority) {
+                switch (priority) {
+                    case 'urgent': return 'border-l-red-500';
+                    case 'high': return 'border-l-amber-500';
+                    case 'low': return 'border-l-gray-300 dark:border-l-gray-600';
+                    default: return 'border-l-blue-400';
+                }
+            }
+
+            function priorityChipClass(priority) {
+                switch (priority) {
+                    case 'urgent': return 'border-l-red-500 bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300';
+                    case 'high': return 'border-l-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300';
+                    case 'low': return 'border-l-gray-300 bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+                    default: return 'border-l-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300';
+                }
+            }
+
+            function buildOptimisticEl(opts) {
+                const title = opts.title || 'Untitled';
+                const priority = opts.priority || 'medium';
+                const tempId = opts.tempId;
+                const view = opts.view || 'list';
+
+                if (view === 'board') {
+                    const el = document.createElement('div');
+                    el.setAttribute('data-optimistic-task', '1');
+                    el.setAttribute('data-temp-id', tempId);
+                    el.className = 'opacity-70 bg-white dark:bg-gray-800 rounded-xl border-l-[3.5px] ' + priorityBorderClass(priority) + ' border border-gray-200/80 dark:border-white/10 shadow-2xs p-3 space-y-2 pointer-events-none';
+                    const row = document.createElement('div');
+                    row.className = 'flex items-start gap-2';
+                    const box = document.createElement('span');
+                    box.className = 'w-4 h-4 rounded border border-gray-300 dark:border-gray-600 shrink-0 mt-0.5';
+                    const h = document.createElement('h4');
+                    h.className = 'text-xs font-semibold text-gray-900 dark:text-white leading-snug line-clamp-2';
+                    h.textContent = title;
+                    row.appendChild(box);
+                    row.appendChild(h);
+                    const saving = document.createElement('p');
+                    saving.className = 'text-[10px] text-gray-400 font-medium';
+                    saving.textContent = 'Saving…';
+                    el.appendChild(row);
+                    el.appendChild(saving);
+                    return el;
+                }
+
+                if (view === 'table') {
+                    const tr = document.createElement('tr');
+                    tr.setAttribute('data-optimistic-task', '1');
+                    tr.setAttribute('data-temp-id', tempId);
+                    tr.className = 'opacity-70 bg-brand-50/30 dark:bg-brand-950/10 pointer-events-none';
+                    const tdEmpty = document.createElement('td');
+                    tdEmpty.className = 'px-3 py-2.5';
+                    const tdId = document.createElement('td');
+                    tdId.className = 'px-3 py-2.5 font-mono text-gray-400 text-[11px]';
+                    tdId.textContent = '—';
+                    const tdTitle = document.createElement('td');
+                    tdTitle.className = 'px-3 py-2.5 font-semibold text-gray-900 dark:text-white';
+                    tdTitle.appendChild(document.createTextNode(title + ' '));
+                    const saving = document.createElement('span');
+                    saving.className = 'ml-1 text-[10px] font-medium text-gray-400';
+                    saving.textContent = 'Saving…';
+                    tdTitle.appendChild(saving);
+                    const tdRest = document.createElement('td');
+                    tdRest.className = 'px-3 py-2.5';
+                    tdRest.colSpan = 9;
+                    tr.appendChild(tdEmpty);
+                    tr.appendChild(tdId);
+                    tr.appendChild(tdTitle);
+                    tr.appendChild(tdRest);
+                    return tr;
+                }
+
+                if (view === 'calendar') {
+                    const el = document.createElement('div');
+                    el.setAttribute('data-optimistic-task', '1');
+                    el.setAttribute('data-temp-id', tempId);
+                    el.className = 'opacity-70 block w-full text-left text-[9px] font-semibold truncate px-1.5 py-0.5 rounded border-l-2 ' + priorityChipClass(priority) + ' pointer-events-none';
+                    el.textContent = title;
+                    return el;
+                }
+
+                if (view === 'timeline') {
+                    const el = document.createElement('div');
+                    el.setAttribute('data-optimistic-task', '1');
+                    el.setAttribute('data-temp-id', tempId);
+                    el.className = 'opacity-70 flex items-center gap-4 py-2 border-b border-gray-100 dark:border-white/5 pointer-events-none';
+                    const left = document.createElement('div');
+                    left.className = 'w-48 shrink-0';
+                    const name = document.createElement('div');
+                    name.className = 'text-xs font-semibold text-gray-900 dark:text-white truncate';
+                    name.textContent = title;
+                    const saving = document.createElement('span');
+                    saving.className = 'text-[10px] text-gray-400 font-mono';
+                    saving.textContent = 'Saving…';
+                    left.appendChild(name);
+                    left.appendChild(saving);
+                    const barWrap = document.createElement('div');
+                    barWrap.className = 'flex-1 bg-blue-100 dark:bg-blue-950/30 h-6 rounded-lg overflow-hidden';
+                    const bar = document.createElement('div');
+                    bar.className = 'h-full w-[10%] bg-gradient-to-r from-blue-500 to-blue-400 rounded-lg';
+                    barWrap.appendChild(bar);
+                    el.appendChild(left);
+                    el.appendChild(barWrap);
+                    return el;
+                }
+
+                if (view === 'subtask') {
+                    const el = document.createElement('div');
+                    el.setAttribute('data-optimistic-task', '1');
+                    el.setAttribute('data-temp-id', tempId);
+                    el.className = 'opacity-70 px-3 py-1.5 flex items-center gap-2.5 rounded-lg pointer-events-none';
+                    const icon = document.createElement('span');
+                    icon.className = 'w-3.5 h-3.5 rounded bg-gray-200 dark:bg-gray-700 shrink-0';
+                    const name = document.createElement('span');
+                    name.className = 'min-w-0 flex-1 text-xs font-medium text-gray-700 dark:text-gray-200 truncate';
+                    name.textContent = title;
+                    const saving = document.createElement('span');
+                    saving.className = 'text-[10px] text-gray-400';
+                    saving.textContent = 'Saving…';
+                    el.appendChild(icon);
+                    el.appendChild(name);
+                    el.appendChild(saving);
+                    return el;
+                }
+
+                // list (default)
+                const wrap = document.createElement('div');
+                wrap.setAttribute('data-optimistic-task', '1');
+                wrap.setAttribute('data-temp-id', tempId);
+                wrap.setAttribute('data-task-row', '');
+                wrap.className = 'opacity-70 space-y-0.5 pointer-events-none';
+                const row = document.createElement('div');
+                row.className = 'px-3.5 py-2 flex items-center gap-3 rounded-lg border border-transparent';
+                const spacer = document.createElement('span');
+                spacer.className = 'w-4 shrink-0';
+                const handle = document.createElement('span');
+                handle.className = 'w-4 h-4 text-gray-300 shrink-0';
+                handle.textContent = '⋮';
+                const check = document.createElement('span');
+                check.className = 'w-4 h-4 rounded border border-gray-300 dark:border-gray-600 shrink-0';
+                const dot = document.createElement('span');
+                dot.className = 'w-2 h-2 rounded-full ' + priorityDotClass(priority) + ' shrink-0';
+                const name = document.createElement('span');
+                name.className = 'text-xs font-semibold text-gray-900 dark:text-white truncate';
+                name.textContent = title;
+                const saving = document.createElement('span');
+                saving.className = 'ml-auto text-[10px] text-gray-400 font-medium shrink-0';
+                saving.textContent = 'Saving…';
+                row.appendChild(spacer);
+                row.appendChild(handle);
+                row.appendChild(check);
+                row.appendChild(dot);
+                row.appendChild(name);
+                row.appendChild(saving);
+                wrap.appendChild(row);
+                return wrap;
+            }
+
+            function resolveContainerSelector(container) {
+                if (!container || !container.isConnected) return null;
+                if (container.hasAttribute('data-task-drop-list')) {
+                    const parent = container.closest('[data-state-id]');
+                    if (parent && parent.getAttribute('data-state-id') !== '') {
+                        return '[data-state-id="' + parent.getAttribute('data-state-id') + '"] [data-task-drop-list]';
+                    }
+                    return null;
+                }
+                if (container.hasAttribute('data-subtask-list')) {
+                    return '[data-subtask-list="' + container.getAttribute('data-subtask-list') + '"]';
+                }
+                if (container.hasAttribute('data-task-table-body')) return '[data-task-table-body]';
+                if (container.hasAttribute('data-cal-day-tasks')) {
+                    const day = container.closest('[data-cal-date]');
+                    if (day) return '[data-cal-date="' + day.getAttribute('data-cal-date') + '"] [data-cal-day-tasks]';
+                }
+                if (container.hasAttribute('data-timeline-list')) return '[data-timeline-list]';
+                return null;
+            }
+
+            function hideEmptyPlaceholders(container) {
+                if (!container) return;
+                container.querySelectorAll('.border-dashed, p.text-xs.text-gray-400.italic').forEach((el) => {
+                    if (el.closest('[data-optimistic-task]')) return;
+                    if (el.matches('p') || el.classList.contains('border-dashed')) {
+                        el.style.display = 'none';
+                    }
+                });
+                const emptyMsg = container.querySelector(':scope > p.italic, :scope > div.border-dashed');
+                if (emptyMsg) emptyMsg.style.display = 'none';
+            }
+
+            window.optimisticCreateTask = function (opts) {
+                opts = opts || {};
+                const title = (opts.title || '').trim();
+                if (!title) return null;
+
+                const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+                const view = opts.view || 'list';
+                let container = opts.container || null;
+
+                if (!container) {
+                    return null;
+                }
+
+                // Prefer inserting before quick-add footer / empty placeholders
+                const el = buildOptimisticEl({ title, view, priority: opts.priority || 'medium', tempId });
+                hideEmptyPlaceholders(container);
+
+                if (view === 'table') {
+                    container.insertBefore(el, container.firstChild);
+                } else {
+                    const quickAdd = container.querySelector('[data-quick-add]');
+                    if (quickAdd && container.contains(quickAdd)) {
+                        container.insertBefore(el, quickAdd);
+                    } else {
+                        container.appendChild(el);
+                    }
+                }
+
+                window.__pendingOptimisticCreates = (window.__pendingOptimisticCreates || 0) + 1;
+                window.__optimisticCreateEntries.set(tempId, {
+                    tempId,
+                    view,
+                    title,
+                    priority: opts.priority || 'medium',
+                    selector: resolveContainerSelector(container),
+                });
+                window.dispatchEvent(new CustomEvent('optimistic-create-start'));
+
+                return tempId;
+            };
+
+            window.removeOptimisticCreate = function (tempId) {
+                if (!tempId) return;
+                const node = document.querySelector('[data-temp-id="' + tempId + '"]');
+                if (node) node.remove();
+                if (window.__optimisticCreateEntries.has(tempId)) {
+                    window.__optimisticCreateEntries.delete(tempId);
+                    window.__pendingOptimisticCreates = Math.max(0, (window.__pendingOptimisticCreates || 0) - 1);
+                    window.dispatchEvent(new CustomEvent('optimistic-create-done'));
+                }
+            };
+
+            window.finishOptimisticCreate = function (tempId, realId) {
+                if (!tempId) return;
+                const node = document.querySelector('[data-temp-id="' + tempId + '"]');
+                if (node && realId) {
+                    node.setAttribute('data-task-id', String(realId));
+                }
+                // Drop from pending so poll can resume; morph will replace placeholder
+                if (window.__optimisticCreateEntries.has(tempId)) {
+                    window.__optimisticCreateEntries.delete(tempId);
+                    window.__pendingOptimisticCreates = Math.max(0, (window.__pendingOptimisticCreates || 0) - 1);
+                    window.dispatchEvent(new CustomEvent('optimistic-create-done'));
+                }
+                // Remove placeholder once Livewire has painted the real row (next tick + short delay)
+                requestAnimationFrame(() => {
+                    const still = document.querySelector('[data-temp-id="' + tempId + '"]');
+                    if (still && realId && document.querySelector('[data-task-id="' + realId + '"]:not([data-optimistic-task])')) {
+                        still.remove();
+                    } else if (still && realId) {
+                        setTimeout(() => {
+                            const late = document.querySelector('[data-temp-id="' + tempId + '"]');
+                            if (late) late.remove();
+                        }, 50);
+                    }
+                });
+            };
+
+            window.rehydrateOptimisticCreates = function () {
+                window.__optimisticCreateEntries.forEach((entry) => {
+                    if (document.querySelector('[data-temp-id="' + entry.tempId + '"]')) return;
+                    if (!entry.selector) return;
+                    const container = document.querySelector(entry.selector);
+                    if (!container) return;
+                    const el = buildOptimisticEl(entry);
+                    hideEmptyPlaceholders(container);
+                    if (entry.view === 'table') {
+                        container.insertBefore(el, container.firstChild);
+                    } else {
+                        const quickAdd = container.querySelector('[data-quick-add]');
+                        if (quickAdd && container.contains(quickAdd)) {
+                            container.insertBefore(el, quickAdd);
+                        } else {
+                            container.appendChild(el);
+                        }
+                    }
+                });
+            };
+
+            window.optimisticCreateFromModal = function (opts) {
+                opts = opts || {};
+                const root = document.querySelector('[data-task-dashboard]');
+                const view = (root && root.getAttribute('data-current-view')) || 'list';
+                const title = opts.title || '';
+                const priority = opts.priority || 'medium';
+                const dueDate = opts.dueDate || null;
+                const startDate = opts.startDate || null;
+
+                let container = null;
+                let insertView = view;
+
+                if (view === 'list') {
+                    container = document.querySelector('[data-group-type="status"][data-state-id]:not([data-state-id=""]) [data-task-drop-list]')
+                        || document.querySelector('[data-task-drop-list]');
+                    insertView = 'list';
+                } else if (view === 'board') {
+                    container = document.querySelector('[data-state-type="initial"] [data-task-drop-list]')
+                        || document.querySelector('[data-state-id] [data-task-drop-list]');
+                    insertView = 'board';
+                } else if (view === 'table') {
+                    container = document.querySelector('[data-task-table-body]');
+                    insertView = 'table';
+                } else if (view === 'calendar') {
+                    if (dueDate) {
+                        container = document.querySelector('[data-cal-date="' + dueDate + '"] [data-cal-day-tasks]');
+                        insertView = 'calendar';
+                    }
+                } else if (view === 'timeline') {
+                    if (dueDate || startDate) {
+                        container = document.querySelector('[data-timeline-list]');
+                        insertView = 'timeline';
+                    }
+                }
+
+                if (!container) {
+                    // Modal still closes; no place to show a placeholder in this view/state
+                    window.__pendingOptimisticCreates = (window.__pendingOptimisticCreates || 0) + 1;
+                    window.dispatchEvent(new CustomEvent('optimistic-create-start'));
+                    const phantomId = 'temp-phantom-' + Date.now();
+                    window.__optimisticCreateEntries.set(phantomId, { tempId: phantomId, view: insertView, title, priority, selector: null });
+                    return phantomId;
+                }
+
+                return window.optimisticCreateTask({ title, view: insertView, container, priority });
+            };
+
+            if (!window.__taskDashboardPollStarted) {
+                window.__taskDashboardPollStarted = true;
+                setInterval(function () {
+                    if ((window.__pendingOptimisticCreates || 0) > 0) return;
+                    const el = document.querySelector('[data-task-dashboard]');
+                    if (!el || !window.Livewire) return;
+                    const id = el.getAttribute('wire:id');
+                    if (!id) return;
+                    const component = window.Livewire.find(id);
+                    if (component && typeof component.$refresh === 'function') {
+                        component.$refresh();
+                    }
+                }, 5000);
+            }
+
+            document.addEventListener('livewire:init', function () {
+                Livewire.hook('morph.updated', function () {
+                    // Defer so create promises can clear pending entries before we rehydrate
+                    setTimeout(function () {
+                        if ((window.__pendingOptimisticCreates || 0) > 0) {
+                            window.rehydrateOptimisticCreates();
+                        }
+                    }, 0);
+                });
+            });
         </script>
     @endonce
 </div>
