@@ -2,7 +2,13 @@
 
 @section('content')
     <h2 style="margin:0 0 8px;color:#1e293b;font-size:18px;">New Task Assigned</h2>
-    <p style="margin:0 0 20px;color:#64748b;font-size:14px;">Hi {{ $employee->name }}, a task has been assigned to you:</p>
+    <p style="margin:0 0 20px;color:#64748b;font-size:14px;">
+        @if($intro)
+            {{ $intro }}
+        @else
+            Hi {{ $employee->name }}, a task has been assigned to you:
+        @endif
+    </p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:6px;border:1px solid #e5e7eb;">
         <tr>

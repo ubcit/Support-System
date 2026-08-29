@@ -130,7 +130,7 @@
                         <span class="shrink-0 font-mono text-[10px] text-gray-400">{{ $counts['completed'] }}</span>
                     </a>
                 </li>
-                @if ($canDelete ?? false)
+                @if ($canManageTrash ?? false)
                 <li>
                     <a
                         href="{{ $dashboardUrl(['trashed' => $currentTrashed ? null : 1, 'completed' => null, 'due' => null, 'queue' => null]) }}"

@@ -67,9 +67,13 @@ class TaskSidebarCounts
             'count' => (int) ($projectCounts[$project->id] ?? 0),
         ]);
 
-        $trashedQuery = Task::onlyTrashed()->whereNull('parent_id');
-        if ($actor) {
-            $trashedQuery->visibleTo($actor);
+        $trashedCount = 0;
+        if (! $actor || $actor->isPrivileged()) {
+            $trashedQuery = Task::onlyTrashed()->whereNull('parent_id');
+            if ($actor) {
+                $trashedQuery->visibleTo($actor);
+            }
+            $trashedCount = $trashedQuery->count();
         }
 
         $result = [
@@ -82,7 +86,7 @@ class TaskSidebarCounts
             'completed' => Task::query()->whereNull('archived_at')->whereNull('parent_id')->whereNotNull('completed_at')
                 ->when($actor, fn ($q) => $q->visibleTo($actor))
                 ->count(),
-            'trashed' => $trashedQuery->count(),
+            'trashed' => $trashedCount,
             'review' => $reviewStateIds === []
                 ? 0
                 : (clone $open)->whereIn('current_state_id', $reviewStateIds)->count(),

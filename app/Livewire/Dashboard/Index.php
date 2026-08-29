@@ -2,36 +2,36 @@
 
 namespace App\Livewire\Dashboard;
 
+use App\Helpers\TaskSidebarCounts;
 use Livewire\Component;
 use Modules\Communication\Models\Conversation;
 use Modules\Employees\Models\Employee;
 use Modules\Health\Services\HealthEngine;
 use Modules\Notifications\Models\Notification;
 use Modules\Projects\Models\Project;
-use Modules\Tasks\Models\Task;
 use Modules\Tasks\Models\TaskActivityLog;
 
 class Index extends Component
 {
     public function render(HealthEngine $healthEngine)
     {
+        $actor = auth()->user()?->resolveEmployee();
+        $counts = TaskSidebarCounts::for($actor);
+
         $projects = Project::with('tasks')->get();
         $employees = Employee::with('user')->withCount(['assignments as active_tasks' => function ($q) {
             $q->whereHas('task', fn ($t) => $t->whereNull('completed_at'));
         }])->get();
 
-        $tasks = Task::with('assignees.user')->whereNull('archived_at')->get();
-        $unassignedTasks = $tasks->filter(fn ($t) => $t->assignees->count() === 0 && ! $t->completed_at);
-
         $boss_name = auth()->user()?->name ?? 'there';
         $hour = (int) now()->format('G');
         $greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
-        $today_work_count = $tasks->filter(fn ($t) => $t->due_date && $t->due_date->isToday())->count();
+        $today_work_count = $counts['today'];
         $total_projects = $projects->count();
-        $tasks_waiting = $unassignedTasks->count();
+        $tasks_waiting = $counts['unassigned'];
         $conversations_waiting = Conversation::where('status', 'open')->count();
         $unread_notifications_count = Notification::whereNull('read_at')->count();
-        $overdue_tasks = $tasks->filter(fn ($t) => ! $t->completed_at && $t->due_date && $t->due_date->isPast())->count();
+        $overdue_tasks = $counts['overdue'];
         $system_health = $healthEngine->runAll();
         $recent_activity = TaskActivityLog::with(['task', 'employee'])->orderBy('created_at', 'desc')->limit(8)->get();
 

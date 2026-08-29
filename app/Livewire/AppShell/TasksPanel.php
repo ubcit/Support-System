@@ -52,7 +52,7 @@ class TasksPanel extends Component
             $this->currentScope = 'mine';
         }
         $this->currentCompleted = request()->boolean('completed');
-        $this->currentTrashed = request()->boolean('trashed');
+        $this->currentTrashed = request()->boolean('trashed') && $this->isManager();
 
         $priority = request('priority');
         $this->currentPriority = in_array($priority, ['urgent', 'high', 'medium', 'low'], true) ? $priority : null;
@@ -71,6 +71,8 @@ class TasksPanel extends Component
             'counts' => $counts,
             'isManager' => $this->isManager(),
             'canDelete' => auth()->user()?->hasPermission('tasks.delete') ?? false,
+            // Trash is manager-only (employees must not see or permanently delete).
+            'canManageTrash' => $this->isManager(),
         ]);
     }
 }

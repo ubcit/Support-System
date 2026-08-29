@@ -18,6 +18,11 @@ class TaskQuery
     {
         $trashed = (bool) ($filters['trashed'] ?? false);
 
+        // Employees must not browse Trash; only privileged roles can.
+        if ($trashed && $actor && ! $actor->isPrivileged()) {
+            return Task::query()->whereRaw('0 = 1');
+        }
+
         $query = $trashed
             ? Task::onlyTrashed()->whereNull('parent_id')
             : Task::query()->whereNull('archived_at')->whereNull('parent_id');

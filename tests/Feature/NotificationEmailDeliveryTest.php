@@ -199,6 +199,9 @@ class NotificationEmailDeliveryTest extends TestCase
             'assignee_ids' => [$assignee->id],
         ], $creator);
 
+        // Clear mailables recorded during fixture create (creator confirmation, etc.).
+        Mail::fake();
+
         return [$creator, $assignee, $teammate, $task];
     }
 }

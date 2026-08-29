@@ -71,11 +71,20 @@ class TaskPolicy
 
     public function restore(User $user, Task $task): bool
     {
-        return $user->hasPermission('tasks.delete');
+        if (! $user->hasPermission('tasks.delete')) {
+            return false;
+        }
+
+        // Trash (restore / permanent delete) is manager-only.
+        return $user->resolveEmployee()?->isPrivileged() ?? false;
     }
 
     public function forceDelete(User $user, Task $task): bool
     {
-        return $user->hasPermission('tasks.delete');
+        if (! $user->hasPermission('tasks.delete')) {
+            return false;
+        }
+
+        return $user->resolveEmployee()?->isPrivileged() ?? false;
     }
 }

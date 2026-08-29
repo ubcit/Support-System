@@ -134,11 +134,13 @@ class Index extends Component
             $this->filterReview = (string) request('queue');
         }
 
-        if (request()->boolean('trashed')) {
+        if (request()->boolean('trashed') && $this->isManager()) {
             $this->showTrashed = true;
             $this->currentView = 'list';
             $this->showCompleted = false;
             $this->filterReview = '';
+        } else {
+            $this->showTrashed = false;
         }
 
         if (request()->boolean('create') && ! $this->showTrashed) {
@@ -229,6 +231,19 @@ class Index extends Component
     public function canDeleteTasks(): bool
     {
         return auth()->user()?->hasPermission('tasks.delete') ?? false;
+    }
+
+    /** Trash browse / restore / permanent delete — managers only. */
+    public function canManageTrash(): bool
+    {
+        return $this->isManager();
+    }
+
+    public function updatedShowTrashed(bool $value): void
+    {
+        if ($value && ! $this->canManageTrash()) {
+            $this->showTrashed = false;
+        }
     }
 
     public function updateTaskStatus(int $taskId, string $status): void
@@ -348,8 +363,9 @@ class Index extends Component
             return;
         }
 
-        app(NativeTaskService::class)->updateAssignees($task, $nextIds, $this->actor());
-        session()->flash('success', 'Assignee updated.');
+        $service = app(NativeTaskService::class);
+        $service->updateAssignees($task, $nextIds, $this->actor());
+        session()->flash('success', NativeTaskService::formatNotifiedFlash('Assignee updated.', $service->lastNotifiedNames()));
     }
 
     public function toggleTaskAssignee(int $taskId, int $employeeId): void
@@ -366,8 +382,9 @@ class Index extends Component
             $nextIds = array_values(array_unique([...$currentIds, $employeeId]));
         }
 
-        app(NativeTaskService::class)->updateAssignees($task, $nextIds, $this->actor());
-        session()->flash('success', 'Assignees updated.');
+        $service = app(NativeTaskService::class);
+        $service->updateAssignees($task, $nextIds, $this->actor());
+        session()->flash('success', NativeTaskService::formatNotifiedFlash('Assignees updated.', $service->lastNotifiedNames()));
     }
 
     public function updateTaskProject(int $taskId, ?int $projectId): void
@@ -490,17 +507,18 @@ class Index extends Component
         }
 
         $count = count($this->selectedTasks);
-        app(NativeTaskService::class)->bulkDelete($this->selectedTasks, $this->actor());
+        $service = app(NativeTaskService::class);
+        $service->bulkDelete($this->selectedTasks, $this->actor());
 
         $this->selectedTasks = [];
-        session()->flash('success', "{$count} tasks moved to trash.");
+        session()->flash('success', NativeTaskService::formatNotifiedFlash("{$count} tasks moved to trash.", $service->lastNotifiedNames()));
         $this->dispatch('task-selection-cleared');
     }
 
     public function bulkRestore(): void
     {
         $this->authorizePermission('tasks.delete');
-        if (empty($this->selectedTasks)) {
+        if (! $this->canManageTrash() || empty($this->selectedTasks)) {
             return;
         }
 
@@ -515,7 +533,7 @@ class Index extends Component
     public function bulkForceDelete(): void
     {
         $this->authorizePermission('tasks.delete');
-        if (empty($this->selectedTasks)) {
+        if (! $this->canManageTrash() || empty($this->selectedTasks)) {
             return;
         }
 
@@ -642,7 +660,8 @@ class Index extends Component
             $assigneeIds = [$actor->id];
         }
 
-        $task = app(NativeTaskService::class)->createTask([
+        $service = app(NativeTaskService::class);
+        $task = $service->createTask([
             'title' => $this->formTitle,
             'project_id' => $this->formProjectId,
             'priority' => $this->formPriority,
@@ -659,7 +678,7 @@ class Index extends Component
 
         $this->showCreateModal = false;
         $this->resetTaskForm();
-        session()->flash('success', 'Task created successfully');
+        session()->flash('success', NativeTaskService::formatNotifiedFlash('Task created successfully.', $service->lastNotifiedNames()));
 
         return $task->id;
     }
@@ -697,6 +716,7 @@ class Index extends Component
         ], $actor);
 
         $taskService->updateAssignees($task, $this->formAssigneeIds, $actor);
+        $notified = $taskService->lastNotifiedNames();
         $taskService->updateTags(
             $task,
             collect($this->formTagIds)->filter()->map(fn ($id) => (int) $id)->values()->all(),
@@ -704,7 +724,7 @@ class Index extends Component
         );
 
         $this->closeEditModal();
-        session()->flash('success', 'Task Updated');
+        session()->flash('success', NativeTaskService::formatNotifiedFlash('Task Updated.', $notified));
     }
 
     public function createFormTag(?string $name = null): void
@@ -802,14 +822,19 @@ class Index extends Component
         $this->authorizePermission('tasks.delete');
         $task = Task::find($taskId);
         if ($task) {
-            app(NativeTaskService::class)->deleteTask($task, $this->actor());
-            session()->flash('success', 'Task moved to trash.');
+            $service = app(NativeTaskService::class);
+            $service->deleteTask($task, $this->actor());
+            session()->flash('success', NativeTaskService::formatNotifiedFlash('Task moved to trash.', $service->lastNotifiedNames()));
         }
     }
 
     public function restoreTask(int $taskId): void
     {
         $this->authorizePermission('tasks.delete');
+        if (! $this->canManageTrash()) {
+            return;
+        }
+
         $task = Task::onlyTrashed()->find($taskId);
         if ($task) {
             app(NativeTaskService::class)->restoreTask($task, $this->actor());
@@ -820,6 +845,10 @@ class Index extends Component
     public function forceDeleteTask(int $taskId): void
     {
         $this->authorizePermission('tasks.delete');
+        if (! $this->canManageTrash()) {
+            return;
+        }
+
         $task = Task::onlyTrashed()->find($taskId);
         if ($task) {
             app(NativeTaskService::class)->forceDeleteTask($task, $this->actor());
@@ -1032,6 +1061,10 @@ class Index extends Component
 
     public function render()
     {
+        if ($this->showTrashed && ! $this->canManageTrash()) {
+            $this->showTrashed = false;
+        }
+
         $actor = $this->actor();
         $filters = $this->dashboardFilters();
 
@@ -1131,8 +1164,9 @@ class Index extends Component
             'isManager' => $this->isManager(),
             'canCreate' => $this->canCreateTasks() && ! $this->showTrashed,
             'canDelete' => $this->canDeleteTasks(),
+            'canManageTrash' => $this->canManageTrash(),
             'hasMoreTasks' => $hasMoreTasks,
-            'showTrashed' => $this->showTrashed,
+            'showTrashed' => $this->showTrashed && $this->canManageTrash(),
         ]);
     }
 

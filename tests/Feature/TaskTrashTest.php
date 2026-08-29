@@ -153,6 +153,44 @@ class TaskTrashTest extends TestCase
         $this->assertSame(0, TaskSidebarCounts::for($boss->resolveEmployee(), false)['trashed']);
     }
 
+    public function test_employee_cannot_see_trash_or_permanently_delete(): void
+    {
+        $boss = User::where('email', 'boss@thespace.app')->firstOrFail();
+        $employeeUser = User::where('email', 'ahmed@thespace.app')->firstOrFail();
+        $employee = $employeeUser->resolveEmployee();
+        $this->assertNotNull($employee);
+        $this->assertFalse($employee->isPrivileged());
+
+        // Even with tasks.delete, trash browse / permanent delete stay manager-only.
+        $employeeRole = \Modules\Security\Models\Role::where('slug', \Modules\Security\Models\Role::EMPLOYEE)->firstOrFail();
+        $deletePerm = \Modules\Security\Models\Permission::where('slug', 'tasks.delete')->firstOrFail();
+        $employeeRole->permissions()->syncWithoutDetaching([$deletePerm->id]);
+
+        $todo = WorkflowState::where('name', 'To Do')->firstOrFail();
+        $task = Task::factory()->create([
+            'title' => 'Hidden from employee trash',
+            'current_state_id' => $todo->id,
+            'workflow_id' => $todo->workflow_id,
+        ]);
+        $task->assignments()->create(['employee_id' => $employee->id, 'assigned_at' => now()]);
+
+        app(NativeTaskService::class)->deleteTask($task, $boss->resolveEmployee());
+
+        $this->assertSame(0, TaskSidebarCounts::for($employee, true)['trashed']);
+        $this->assertTrue(
+            TaskQuery::dashboardQuery(['trashed' => true], $employee)->get()->isEmpty()
+        );
+
+        Livewire::actingAs($employeeUser)
+            ->withQueryParams(['trashed' => 1])
+            ->test(Index::class)
+            ->assertSet('showTrashed', false)
+            ->assertDontSee('Hidden from employee trash')
+            ->call('forceDeleteTask', $task->id);
+
+        $this->assertSoftDeleted('tasks', ['id' => $task->id]);
+    }
+
     public function test_purge_trash_command_runs(): void
     {
         $todo = WorkflowState::where('name', 'To Do')->firstOrFail();

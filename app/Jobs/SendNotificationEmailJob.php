@@ -45,6 +45,7 @@ class SendNotificationEmailJob
             'task_assigned' => $this->handleTaskAssigned($service),
             'task_created' => $this->handleTaskCreated($service),
             'task_completed' => $this->handleTaskCompleted($service),
+            'task_deleted' => $this->handleTaskDeleted($service),
             'new_issue' => $this->handleNewIssue($service),
             'issue_assigned' => $this->handleIssueAssigned($service),
             'project_member_added' => $this->handleProjectMemberAdded($service),
@@ -82,6 +83,17 @@ class SendNotificationEmailJob
 
         if ($task) {
             $service->sendTaskCompleted($task);
+        }
+    }
+
+    protected function handleTaskDeleted(EmailNotificationService $service): void
+    {
+        $task = Task::withTrashed()->find($this->modelId);
+        $employee = Employee::find($this->employeeId);
+        $actor = $this->actorId ? Employee::find($this->actorId) : null;
+
+        if ($task && $employee) {
+            $service->sendTaskDeleted($task, $employee, $actor?->name);
         }
     }
 

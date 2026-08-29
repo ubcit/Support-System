@@ -427,9 +427,10 @@ class Index extends Component
         if (! $this->task) {
             return;
         }
-        app(NativeTaskService::class)->updateAssignees($this->task, $this->assignedEmployeeIds, $this->actor());
+        $service = app(NativeTaskService::class);
+        $service->updateAssignees($this->task, $this->assignedEmployeeIds, $this->actor());
         $this->loadTask();
-        session()->flash('success', 'Assignees updated');
+        session()->flash('success', NativeTaskService::formatNotifiedFlash('Assignees updated.', $service->lastNotifiedNames()));
     }
 
     public function toggleTag(int $tagId): void
@@ -816,7 +817,9 @@ class Index extends Component
         if (! $this->task) {
             return;
         }
-        app(NativeTaskService::class)->deleteTask($this->task, $this->actor());
+        $service = app(NativeTaskService::class);
+        $service->deleteTask($this->task, $this->actor());
+        session()->flash('success', NativeTaskService::formatNotifiedFlash('Task moved to trash.', $service->lastNotifiedNames()));
 
         return redirect()->to(TaskNav::dashboardUrl());
     }

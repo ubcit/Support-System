@@ -462,7 +462,7 @@
                                             x-on:dragstart.prevent.stop
                                         >
                                             @if($showTrashed)
-                                                @if($canDelete)
+                                                @if($canManageTrash)
                                                 <x-ui.wire-action-button
                                                     target="restoreTask({{ $task->id }})"
                                                     wire:click.stop="restoreTask({{ $task->id }})"
@@ -1488,7 +1488,7 @@
                     <div class="h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
 
                     @if($showTrashed)
-                        @if($canDelete)
+                        @if($canManageTrash)
                         <x-ui.wire-action-button
                             target="bulkRestore"
                             wire:click="bulkRestore"

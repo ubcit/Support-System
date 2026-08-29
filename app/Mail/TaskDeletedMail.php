@@ -10,25 +10,25 @@ use Illuminate\Queue\SerializesModels;
 use Modules\Employees\Models\Employee;
 use Modules\Tasks\Models\Task;
 
-class TaskAssignedMail extends Mailable
+class TaskDeletedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
     public function __construct(
         public Employee $employee,
         public Task $task,
-        public ?string $intro = null,
+        public ?string $actorName = null,
     ) {}
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Task Assigned: '.$this->task->title,
+            subject: 'Task deleted: '.$this->task->title,
         );
     }
 
     public function content(): Content
     {
-        return new Content(view: 'emails.task-assigned');
+        return new Content(view: 'emails.task-deleted');
     }
 }

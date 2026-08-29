@@ -16,8 +16,17 @@ class Index extends Component
             $q->whereHas('task', fn ($t) => $t->whereNull('completed_at'));
         }])->get();
 
-        $overdue = Task::whereNull('completed_at')->where('due_date', '<', now())->count();
-        $unassigned = Task::whereNull('completed_at')
+        $overdue = Task::query()
+            ->whereNull('archived_at')
+            ->whereNull('parent_id')
+            ->whereNull('completed_at')
+            ->whereNotNull('due_date')
+            ->whereDate('due_date', '<', now()->toDateString())
+            ->count();
+        $unassigned = Task::query()
+            ->whereNull('archived_at')
+            ->whereNull('parent_id')
+            ->whereNull('completed_at')
             ->whereDoesntHave('assignees')
             ->count();
         $heavyLoad = $employees->filter(fn ($emp) => $emp->active_count > 5)->count();

@@ -60,9 +60,10 @@ class DiagnoseMailCommand extends Command
         $this->info('Notification email rules');
         $this->line('- Task/issue emails send in-process via SendNotificationEmailJob::dispatchNotify() (no queue worker).');
         $this->line('- Digests/due-soon/overdue use the same EmailNotificationService::sendNow path.');
-        $this->line('- Actor/creator is skipped; self-assign does not email you.');
-        $this->line('- No email on generic status/field edits (To Do → In Progress). Only assign/create/complete/review/mention/issues.');
-        $this->line('- Mail goes to the employee.email of the recipient — check notification_logs if inbox is empty.');
+        $this->line('- Create/assign/delete: actor is also notified (in-app + email), including self-assign.');
+        $this->line('- Events: task_assigned, task_created, task_completed, task_deleted, review_*, mentions, issues, project member.');
+        $this->line('- No email on generic status/field edits (To Do → In Progress).');
+        $this->line('- Mail goes to employee.email — check notification_logs.recipient (demo @thespace.app addresses will not reach Gmail).');
         $this->comment('Supervisor is still needed for WhatsApp, rules evaluation, and other queued jobs — not for notification SMTP.');
 
         $this->newLine();

@@ -7,6 +7,7 @@ use App\Jobs\SendNotificationEmailJob;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Modules\Employees\Models\Employee;
+use Modules\Notifications\Services\EmailNotificationService;
 use Modules\Notifications\Services\NotificationService;
 use Modules\Security\Models\Role;
 use Modules\Tasks\Enums\TaskStatus;
@@ -34,6 +35,28 @@ use Modules\Workflows\Services\WorkflowManager;
  */
 class NativeTaskService
 {
+    /** @var list<string> */
+    protected array $lastNotifiedNames = [];
+
+    /**
+     * @return list<string>
+     */
+    public function lastNotifiedNames(): array
+    {
+        return $this->lastNotifiedNames;
+    }
+
+    public static function formatNotifiedFlash(string $base, array $names): string
+    {
+        $names = array_values(array_unique(array_filter($names)));
+
+        if ($names === []) {
+            return $base;
+        }
+
+        return rtrim($base, '.').'. Notified: '.implode(', ', $names).'.';
+    }
+
     public function createTask(array $data, ?Employee $creator = null): Task
     {
         $data['created_by'] = $data['created_by'] ?? $creator?->id;
@@ -1060,10 +1083,14 @@ class NativeTaskService
     public function bulkDelete(array $taskIds, ?Employee $actor = null): int
     {
         $tasks = Task::whereIn('id', $taskIds)->get();
+        $names = [];
 
         foreach ($tasks as $task) {
             $this->deleteTask($task, $actor);
+            $names = array_merge($names, $this->lastNotifiedNames);
         }
+
+        $this->lastNotifiedNames = array_values(array_unique($names));
 
         return $tasks->count();
     }
@@ -1075,6 +1102,8 @@ class NativeTaskService
             'employee_id' => $actor?->id,
             'action' => 'task_deleted',
         ]);
+
+        $this->notifyTaskDeleted($task, $actor);
 
         // Keep assignees/checklists so restore is full; soft-delete direct subtasks
         // so they do not linger as orphans while the parent is in trash.
@@ -1277,23 +1306,26 @@ class NativeTaskService
     }
 
     /**
-     * Email + in-app: assignees get task_assigned; other project members get task_created.
+     * Email + in-app: assignees get task_assigned (including creator if assigned);
+     * creator always gets task_created confirmation; other project members get task_created.
      */
     protected function notifyTaskCreated(Task $task, ?Employee $creator = null): void
     {
-        $task->loadMissing(['assignees.user', 'project.employees.user']);
+        $this->lastNotifiedNames = [];
+        $task->loadMissing(['assignees.user', 'project.employees.user', 'creator.user']);
         $notificationService = app(NotificationService::class);
+        $emailService = app(EmailNotificationService::class);
         $creatorName = $creator?->name ?? $task->creator?->name ?? 'Someone';
-        $assigneeIds = $task->assignees->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $notifiedIds = [];
 
         foreach ($task->assignees as $assignee) {
-            if ($creator && (int) $assignee->id === (int) $creator->id) {
-                continue;
-            }
+            $body = ($creator && (int) $assignee->id === (int) $creator->id)
+                ? "You assigned yourself to this task."
+                : "{$creatorName} assigned you to this task.";
 
             $notificationService->send(
                 title: 'Task assigned: '.($task->title ?: 'Task'),
-                body: "{$creatorName} assigned you to this task.",
+                body: $body,
                 type: 'task_assigned',
                 employee: $assignee,
                 userId: $assignee->user_id,
@@ -1302,38 +1334,55 @@ class NativeTaskService
             );
 
             SendNotificationEmailJob::dispatchNotify('task_assigned', $task->id, $assignee->id);
+            $notifiedIds[] = (int) $assignee->id;
+            $this->lastNotifiedNames[] = $assignee->name;
         }
 
-        if (! $task->project_id) {
-            return;
-        }
-
-        $notified = collect($assigneeIds);
         if ($creator) {
-            $notified->push((int) $creator->id);
-        }
-        if ($task->created_by) {
-            $notified->push((int) $task->created_by);
-        }
-
-        foreach ($task->project?->employees ?? [] as $member) {
-            if ($notified->contains((int) $member->id)) {
-                continue;
-            }
-
+            $creator->loadMissing('user');
+            $projectLabel = $task->project?->name ? " in {$task->project->name}" : '';
             $notificationService->send(
                 title: 'New task: '.($task->title ?: 'Task'),
-                body: "{$creatorName} created a task in {$task->project->name}.",
+                body: "You created this task{$projectLabel}.",
                 type: 'task_created',
-                employee: $member,
-                userId: $member->user_id,
-                actionUrl: TaskNav::detailUrlFor($member->user, $task->id, []),
+                employee: $creator,
+                userId: $creator->user_id,
+                actionUrl: TaskNav::detailUrlFor($creator->user, $task->id, []),
                 metadata: ['task_id' => $task->id, 'project_id' => $task->project_id],
             );
+            $emailService->sendTaskCreatedTo($task, $creator, $creatorName);
+            $this->lastNotifiedNames[] = $creator->name;
+            $notifiedIds[] = (int) $creator->id;
         }
 
-        // One job fans out email to all project members (service excludes creator).
-        SendNotificationEmailJob::dispatchNotify('task_created', $task->id, $creator?->id);
+        if ($task->created_by) {
+            $notifiedIds[] = (int) $task->created_by;
+        }
+        $notifiedIds = array_values(array_unique($notifiedIds));
+
+        if ($task->project_id) {
+            foreach ($task->project?->employees ?? [] as $member) {
+                if (in_array((int) $member->id, $notifiedIds, true)) {
+                    continue;
+                }
+
+                $notificationService->send(
+                    title: 'New task: '.($task->title ?: 'Task'),
+                    body: "{$creatorName} created a task in {$task->project->name}.",
+                    type: 'task_created',
+                    employee: $member,
+                    userId: $member->user_id,
+                    actionUrl: TaskNav::detailUrlFor($member->user, $task->id, []),
+                    metadata: ['task_id' => $task->id, 'project_id' => $task->project_id],
+                );
+                $this->lastNotifiedNames[] = $member->name;
+            }
+
+            // Fan-out email to project members (service excludes creator + assignees).
+            SendNotificationEmailJob::dispatchNotify('task_created', $task->id, $creator?->id);
+        }
+
+        $this->lastNotifiedNames = array_values(array_unique($this->lastNotifiedNames));
     }
 
     /**
@@ -1341,26 +1390,32 @@ class NativeTaskService
      */
     protected function notifyAssigneesAdded(Task $task, array $addedEmployeeIds, ?Employee $actor = null): void
     {
+        $this->lastNotifiedNames = [];
+
         if ($addedEmployeeIds === []) {
             return;
         }
 
         $notificationService = app(NotificationService::class);
+        $emailService = app(EmailNotificationService::class);
         $actorName = $actor?->name ?? 'Someone';
+        $addedNames = [];
+        $notifiedIds = [];
 
         foreach ($addedEmployeeIds as $employeeId) {
-            if ($actor && (int) $employeeId === (int) $actor->id) {
-                continue;
-            }
-
             $employee = Employee::with('user')->find($employeeId);
             if (! $employee) {
                 continue;
             }
 
+            $isSelf = $actor && (int) $employee->id === (int) $actor->id;
+            $body = $isSelf
+                ? 'You assigned yourself to this task.'
+                : "{$actorName} assigned you to this task.";
+
             $notificationService->send(
                 title: 'Task assigned: '.($task->title ?: 'Task'),
-                body: "{$actorName} assigned you to this task.",
+                body: $body,
                 type: 'task_assigned',
                 employee: $employee,
                 userId: $employee->user_id,
@@ -1369,6 +1424,75 @@ class NativeTaskService
             );
 
             SendNotificationEmailJob::dispatchNotify('task_assigned', $task->id, $employee->id);
+            $notifiedIds[] = (int) $employee->id;
+            $this->lastNotifiedNames[] = $employee->name;
+            $addedNames[] = $employee->name;
         }
+
+        // Actor always gets confirmation when they assigned someone else.
+        if ($actor && ! in_array((int) $actor->id, $notifiedIds, true)) {
+            $actor->loadMissing('user');
+            $namesList = implode(', ', $addedNames) ?: 'assignees';
+            $intro = "You assigned {$namesList} to this task.";
+
+            $notificationService->send(
+                title: 'Assignees updated: '.($task->title ?: 'Task'),
+                body: $intro,
+                type: 'task_assigned',
+                employee: $actor,
+                userId: $actor->user_id,
+                actionUrl: TaskNav::detailUrlFor($actor->user, $task->id, []),
+                metadata: ['task_id' => $task->id],
+            );
+
+            $emailService->sendTaskAssigned($task, $actor, $intro);
+            $this->lastNotifiedNames[] = $actor->name;
+        }
+
+        $this->lastNotifiedNames = array_values(array_unique($this->lastNotifiedNames));
+    }
+
+    protected function notifyTaskDeleted(Task $task, ?Employee $actor = null): void
+    {
+        $this->lastNotifiedNames = [];
+        $task->loadMissing(['assignees.user', 'creator.user']);
+        $notificationService = app(NotificationService::class);
+        $actorName = $actor?->name ?? 'Someone';
+        $trashUrl = TaskNav::dashboardUrlFor($actor?->user, ['trashed' => 1]);
+
+        $recipients = collect($task->assignees);
+        if ($task->creator) {
+            $recipients->push($task->creator);
+        }
+        if ($actor) {
+            $recipients->push($actor);
+        }
+
+        foreach ($recipients->unique('id') as $employee) {
+            if (! $employee instanceof Employee) {
+                continue;
+            }
+
+            $employee->loadMissing('user');
+            $isActor = $actor && (int) $employee->id === (int) $actor->id;
+            $body = $isActor
+                ? 'You deleted this task.'
+                : "{$actorName} deleted this task.";
+
+            $notificationService->send(
+                title: 'Task deleted: '.($task->title ?: 'Task'),
+                body: $body,
+                type: 'task_deleted',
+                employee: $employee,
+                userId: $employee->user_id,
+                actionUrl: TaskNav::dashboardUrlFor($employee->user, ['trashed' => 1]) ?: $trashUrl,
+                metadata: ['task_id' => $task->id],
+            );
+
+            SendNotificationEmailJob::dispatchNotify('task_deleted', $task->id, $employee->id, $actor?->id);
+            $this->lastNotifiedNames[] = $employee->name;
+        }
+
+        $this->lastNotifiedNames = array_values(array_unique($this->lastNotifiedNames));
     }
 }

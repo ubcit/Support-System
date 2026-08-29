@@ -15,6 +15,7 @@ use App\Mail\SessionReadyMail;
 use App\Mail\TaskAssignedMail;
 use App\Mail\TaskCompletedMail;
 use App\Mail\TaskCreatedMail;
+use App\Mail\TaskDeletedMail;
 use App\Mail\TaskDueSoonMail;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -220,7 +221,7 @@ class EmailNotificationService
     /**
      * Send task-assigned notification email.
      */
-    public function sendTaskAssigned(Task $task, Employee $employee): void
+    public function sendTaskAssigned(Task $task, Employee $employee, ?string $intro = null): void
     {
         if (! $this->shouldNotify($employee, 'task_assigned')) {
             return;
@@ -230,9 +231,47 @@ class EmailNotificationService
 
         $this->sendAndLog(
             $employee,
-            new TaskAssignedMail($employee, $task),
+            new TaskAssignedMail($employee, $task, $intro),
             'task_assigned',
             'Task assigned: '.$task->title,
+        );
+    }
+
+    /**
+     * Send a single task-created confirmation/email to one employee.
+     */
+    public function sendTaskCreatedTo(Task $task, Employee $employee, ?string $creatorName = null): void
+    {
+        if (! $this->shouldNotify($employee, 'task_created')) {
+            return;
+        }
+
+        $task->loadMissing('project');
+
+        $this->sendAndLog(
+            $employee,
+            new TaskCreatedMail($employee, $task, $creatorName),
+            'task_created',
+            'New task: '.$task->title,
+        );
+    }
+
+    /**
+     * Send task-deleted notification email.
+     */
+    public function sendTaskDeleted(Task $task, Employee $employee, ?string $actorName = null): void
+    {
+        if (! $this->shouldNotify($employee, 'task_deleted')) {
+            return;
+        }
+
+        $task->loadMissing('project');
+
+        $this->sendAndLog(
+            $employee,
+            new TaskDeletedMail($employee, $task, $actorName),
+            'task_deleted',
+            'Task deleted: '.$task->title,
         );
     }
 
