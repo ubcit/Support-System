@@ -123,9 +123,24 @@ Checklist:
 Smoke test (on the VM):
 
 ```bash
-php artisan mail:diagnose --send=you@example.com
+php artisan mail:diagnose --send=you@example.com --sample=task_assigned
 php artisan queue:failed
 sudo supervisorctl status
+```
+
+`mail:diagnose` prints `metadata.error` for recent `failed` rows. After `--sample`, it only prints **SMTP path OK** when the new `task_assigned` log is `status=sent` (swallowed SMTP errors no longer look like success).
+
+If event emails fail, dump the exception stored on the log (and Laravel log):
+
+```bash
+php artisan tinker --execute="
+\$rows = DB::table('notification_logs')->orderByDesc('id')->limit(15)->get(['id','recipient','body','status','metadata','created_at']);
+foreach (\$rows as \$r) {
+  \$m = json_decode(\$r->metadata ?? '{}', true);
+  echo \$r->id.'|'.\$r->status.'|'.\$r->body.'|'.\$r->recipient.'|'.(\$m['error'] ?? '-').PHP_EOL;
+}
+"
+grep -n 'Failed to send' storage/logs/laravel.log | tail -20
 ```
 
 Scheduled digests / due-soon / overdue also need the cron in §5 plus workers.

@@ -11,6 +11,7 @@ use Modules\Employees\Models\Employee;
 use Modules\Notifications\Models\NotificationLog;
 use Modules\Notifications\Services\EmailNotificationService;
 use Modules\Tasks\Models\Task;
+use RuntimeException;
 use Throwable;
 
 class DiagnoseMailCommand extends Command
@@ -64,6 +65,7 @@ class DiagnoseMailCommand extends Command
         $this->line('- Events: task_assigned, task_created, task_completed, task_deleted, review_*, mentions, issues, project member.');
         $this->line('- No email on generic status/field edits (To Do → In Progress).');
         $this->line('- Check notification_logs status: sent / failed / skipped — and recipient (demo @thespace.app will not reach Gmail).');
+        $this->line('- Failed rows store the exception in metadata.error (also in storage/logs/laravel.log).');
         $this->comment('Supervisor is still needed for WhatsApp, rules evaluation, and other queued jobs — not for notification SMTP.');
 
         $this->newLine();
@@ -104,28 +106,7 @@ class DiagnoseMailCommand extends Command
                 $this->line('notification_logs by status: '.$counts->map(fn ($c, $s) => "{$s}={$c}")->implode(' '));
             }
 
-            $recent = DB::table('notification_logs')
-                ->orderByDesc('id')
-                ->limit(10)
-                ->get(['id', 'recipient', 'subject', 'body', 'status', 'created_at']);
-
-            if ($recent->isNotEmpty()) {
-                $this->newLine();
-                $this->info('Recent notification_logs');
-                $this->table(
-                    ['id', 'recipient', 'subject', 'body', 'status', 'created_at'],
-                    $recent->map(fn ($row) => [
-                        (string) $row->id,
-                        (string) $row->recipient,
-                        (string) $row->subject,
-                        (string) $row->body,
-                        (string) $row->status,
-                        (string) $row->created_at,
-                    ])->all()
-                );
-            } else {
-                $this->line('notification_logs: (empty)');
-            }
+            $this->printRecentNotificationLogs('Recent notification_logs');
         } catch (Throwable $e) {
             $this->warn('notification_logs unavailable: '.$e->getMessage());
         }
@@ -146,6 +127,7 @@ class DiagnoseMailCommand extends Command
             $this->newLine();
             $this->comment('Re-run with --send=you@example.com to perform a live SMTP test.');
             $this->comment('Add --sample=task_assigned to also send a TaskAssignedMail via EmailNotificationService.');
+            $this->comment('To inspect failed rows: metadata.error on notification_logs, or grep "Failed to send" storage/logs/laravel.log');
 
             return self::SUCCESS;
         }
@@ -186,22 +168,29 @@ class DiagnoseMailCommand extends Command
 
             try {
                 $this->sendTaskAssignedSample($to);
-                $this->info('Sample task_assigned completed. Check inbox and notification_logs.');
+                $this->info('Sample task_assigned completed with status=sent. Check inbox.');
             } catch (Throwable $e) {
                 $this->error(get_class($e).': '.$e->getMessage());
                 $this->printSmtpHints($e->getMessage());
+                $this->printRecentNotificationLogs('notification_logs after sample (failed)');
 
                 return self::FAILURE;
             }
         }
 
+        $this->printRecentNotificationLogs('notification_logs after send');
         $this->comment('SMTP path OK. Assign a task to a different employee (real mailbox) to verify event emails.');
 
         return self::SUCCESS;
     }
 
+    /**
+     * @throws RuntimeException when the sample did not log status=sent
+     */
     protected function sendTaskAssignedSample(string $to): void
     {
+        $beforeId = (int) (NotificationLog::query()->max('id') ?? 0);
+
         $task = Task::query()->with('project')->latest('id')->first();
 
         if (! $task) {
@@ -222,17 +211,95 @@ class DiagnoseMailCommand extends Command
         // Unsaved probe has null id — morph columns are nullable.
         app(EmailNotificationService::class)->sendTaskAssigned($task, $probe);
 
-        $logged = NotificationLog::query()
+        $log = NotificationLog::query()
             ->where('recipient', $to)
             ->where('body', 'task_assigned')
+            ->where('id', '>', $beforeId)
             ->orderByDesc('id')
-            ->exists();
+            ->first();
 
-        if (! $logged) {
+        if (! $log) {
             // Fallback if service skipped for any reason — still exercise the mailable.
-            Mail::to($to)->sendNow(new TaskAssignedMail($probe, $task));
-            $this->warn('Service did not log task_assigned; sent TaskAssignedMail directly as fallback.');
+            try {
+                Mail::to($to)->sendNow(new TaskAssignedMail($probe, $task));
+                NotificationLog::create([
+                    'channel' => 'email',
+                    'recipient' => $to,
+                    'subject' => 'Task assigned: '.$task->title,
+                    'body' => 'task_assigned',
+                    'status' => 'sent',
+                    'sent_at' => now(),
+                    'metadata' => ['type' => 'task_assigned', 'source' => 'diagnose_fallback'],
+                ]);
+                $this->warn('Service did not log task_assigned; sent TaskAssignedMail directly as fallback.');
+            } catch (Throwable $e) {
+                throw new RuntimeException(
+                    'Sample task_assigned was not logged by EmailNotificationService and fallback send failed: '.$e->getMessage(),
+                    0,
+                    $e
+                );
+            }
+
+            return;
         }
+
+        if ($log->status !== 'sent') {
+            $error = is_array($log->metadata) ? (string) ($log->metadata['error'] ?? 'unknown') : 'unknown';
+
+            throw new RuntimeException(
+                "Sample task_assigned logged as {$log->status} (notification_logs.id={$log->id}): {$error}"
+            );
+        }
+    }
+
+    protected function printRecentNotificationLogs(string $heading): void
+    {
+        $recent = DB::table('notification_logs')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get(['id', 'recipient', 'subject', 'body', 'status', 'metadata', 'created_at']);
+
+        if ($recent->isEmpty()) {
+            $this->line('notification_logs: (empty)');
+
+            return;
+        }
+
+        $this->newLine();
+        $this->info($heading);
+        $this->table(
+            ['id', 'recipient', 'subject', 'body', 'status', 'error', 'created_at'],
+            $recent->map(fn ($row) => [
+                (string) $row->id,
+                (string) $row->recipient,
+                mb_substr((string) $row->subject, 0, 40),
+                (string) $row->body,
+                (string) $row->status,
+                $this->formatLogError($row->metadata),
+                (string) $row->created_at,
+            ])->all()
+        );
+    }
+
+    protected function formatLogError(mixed $metadata): string
+    {
+        if (is_string($metadata) && $metadata !== '') {
+            $decoded = json_decode($metadata, true);
+            $metadata = is_array($decoded) ? $decoded : null;
+        }
+
+        if (! is_array($metadata)) {
+            return '-';
+        }
+
+        $error = $metadata['error'] ?? null;
+        if (! is_string($error) || $error === '') {
+            return '-';
+        }
+
+        $oneLine = preg_replace('/\s+/', ' ', $error) ?? $error;
+
+        return mb_substr($oneLine, 0, 80);
     }
 
     protected function printSmtpHints(string $message): void

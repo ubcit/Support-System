@@ -9,6 +9,7 @@ use App\Mail\TaskCreatedMail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Mail;
+use Mockery;
 use Modules\Employees\Models\Employee;
 use Modules\MultiTenancy\Models\Workspace;
 use Modules\Notifications\Models\NotificationLog;
@@ -18,6 +19,7 @@ use Modules\Tasks\Models\Task;
 use Modules\Tasks\Services\NativeTaskService;
 use Modules\Workflows\Models\Workflow;
 use Modules\Workflows\Models\WorkflowState;
+use RuntimeException;
 use Tests\TestCase;
 
 class NotificationEmailDeliveryTest extends TestCase
@@ -110,6 +112,7 @@ class NotificationEmailDeliveryTest extends TestCase
         ]);
 
         $this->assertSame(0, $exit);
+        $this->assertStringContainsString('SMTP path OK', Artisan::output());
 
         Mail::assertSent(TaskAssignedMail::class, function (TaskAssignedMail $mail) use ($to) {
             return $mail->hasTo($to);
@@ -125,6 +128,40 @@ class NotificationEmailDeliveryTest extends TestCase
 
         $this->assertNotNull($task->id);
         $this->assertNotNull($assignee->id);
+    }
+
+    public function test_mail_diagnose_sample_fails_when_send_and_log_records_failed(): void
+    {
+        $this->seedAssignedTask();
+        $to = 'diagnose-fail-'.uniqid().'@example.com';
+
+        Mail::shouldReceive('raw')->once()->andReturnNull();
+
+        $pending = Mockery::mock();
+        $pending->shouldReceive('sendNow')
+            ->once()
+            ->andThrow(new RuntimeException('Simulated SMTP failure'));
+
+        Mail::shouldReceive('to')->once()->with($to)->andReturn($pending);
+
+        $exit = Artisan::call('mail:diagnose', [
+            '--send' => $to,
+            '--sample' => 'task_assigned',
+        ]);
+
+        $output = Artisan::output();
+
+        $this->assertSame(1, $exit);
+        $this->assertStringNotContainsString('SMTP path OK', $output);
+        $this->assertStringContainsString('Simulated SMTP failure', $output);
+
+        $this->assertTrue(
+            NotificationLog::query()
+                ->where('recipient', $to)
+                ->where('body', 'task_assigned')
+                ->where('status', 'failed')
+                ->exists()
+        );
     }
 
     /**
