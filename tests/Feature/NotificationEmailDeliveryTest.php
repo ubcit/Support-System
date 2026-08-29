@@ -8,7 +8,6 @@ use App\Mail\TaskCompletedMail;
 use App\Mail\TaskCreatedMail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Mail;
 use Modules\Employees\Models\Employee;
 use Modules\MultiTenancy\Models\Workspace;
@@ -41,7 +40,7 @@ class NotificationEmailDeliveryTest extends TestCase
         Mail::assertNotQueued(TaskAssignedMail::class);
     }
 
-    public function test_dispatch_notify_runs_synchronously_and_sends_mail(): void
+    public function test_dispatch_notify_still_sends_mail_for_diagnose_helpers(): void
     {
         Mail::fake();
 
@@ -74,7 +73,7 @@ class NotificationEmailDeliveryTest extends TestCase
         });
     }
 
-    public function test_update_fields_to_done_dispatches_completed_email_job_sync(): void
+    public function test_update_fields_to_done_sends_completed_email_directly(): void
     {
         Mail::fake();
 
@@ -87,18 +86,11 @@ class NotificationEmailDeliveryTest extends TestCase
             'order' => 99,
         ]);
 
-        Bus::fake([SendNotificationEmailJob::class]);
+        Mail::fake();
 
         app(NativeTaskService::class)->updateFields($task, [
             'current_state_id' => $done->id,
         ], $creator);
-
-        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task) {
-            return $job->type === 'task_completed' && $job->modelId === $task->id;
-        });
-
-        (new SendNotificationEmailJob('task_completed', $task->id))
-            ->handle(app(EmailNotificationService::class));
 
         Mail::assertSent(TaskCompletedMail::class, function (TaskCompletedMail $mail) use ($assignee) {
             return $mail->hasTo($assignee->email);

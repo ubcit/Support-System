@@ -3,7 +3,6 @@
 namespace Modules\Communication\Services;
 
 use App\Helpers\InboxNav;
-use App\Jobs\SendNotificationEmailJob;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Modules\Communication\Enums\ConversationSessionStatus;
@@ -18,6 +17,7 @@ use Modules\Communication\Support\CustomerLocale;
 use Modules\Employees\Models\Employee;
 use Modules\MultiTenancy\Models\Workspace;
 use Modules\Notifications\Models\NotificationLog;
+use Modules\Notifications\Services\EmailNotificationService;
 use Modules\Notifications\Services\NotificationService;
 use Modules\Projects\Models\Project;
 use Modules\Projects\Services\ProjectService;
@@ -231,8 +231,8 @@ class SessionReadyNotificationService
             return;
         }
 
-        // Queue via job (conversation_needs_human) so SMTP uses workers like other mail.
-        SendNotificationEmailJob::dispatchNotify('conversation_needs_human', $session->id, $employee->id);
+        // Same digest path: send SMTP in-process (no queue re-find).
+        app(EmailNotificationService::class)->sendConversationNeedsHuman($session, $employee);
     }
 
     protected function sendStaffWhatsApp(Employee $employee, string $body, ConversationSession $session): void

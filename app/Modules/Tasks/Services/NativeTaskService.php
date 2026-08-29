@@ -3,7 +3,6 @@
 namespace Modules\Tasks\Services;
 
 use App\Helpers\TaskNav;
-use App\Jobs\SendNotificationEmailJob;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Modules\Employees\Models\Employee;
@@ -379,7 +378,7 @@ class NativeTaskService
             $this->notifyIfEnteredReview($fresh, $employee, $fromState, $state);
 
             if (! $wasCompleted && $fresh?->completed_at !== null) {
-                SendNotificationEmailJob::dispatchNotify('task_completed', $fresh->id);
+                app(EmailNotificationService::class)->sendTaskCompleted($fresh);
             }
         }
 
@@ -637,7 +636,7 @@ class NativeTaskService
         $this->notifyIfEnteredReview($fresh, $actor, $fromState, $fresh?->currentState);
 
         if (! $wasCompleted && $fresh?->completed_at !== null) {
-            SendNotificationEmailJob::dispatchNotify('task_completed', $fresh->id);
+            app(EmailNotificationService::class)->sendTaskCompleted($fresh);
         }
 
         return $fresh;
@@ -870,7 +869,7 @@ class NativeTaskService
         ]);
 
         if (! $wasCompleted && $task->completed_at !== null) {
-            SendNotificationEmailJob::dispatchNotify('task_completed', $task->id);
+            app(EmailNotificationService::class)->sendTaskCompleted($task);
         }
 
         $fresh = $task->fresh(['currentState']);
@@ -945,7 +944,7 @@ class NativeTaskService
                 ],
             );
 
-            SendNotificationEmailJob::dispatchNotify('comment_mention', $comment->id, $employeeId);
+            app(EmailNotificationService::class)->sendCommentMention($comment, $employee);
         }
 
         return $comment;
@@ -1196,6 +1195,7 @@ class NativeTaskService
     {
         $task->loadMissing('assignees.user');
         $notificationService = app(NotificationService::class);
+        $emailService = app(EmailNotificationService::class);
 
         foreach ($task->assignees as $assignee) {
             if ((int) $assignee->id === (int) $actor->id) {
@@ -1212,7 +1212,9 @@ class NativeTaskService
                 metadata: ['task_id' => $task->id],
             );
 
-            SendNotificationEmailJob::dispatchNotify($type, $task->id, $assignee->id);
+            if (in_array($type, ['task_approved', 'task_changes_requested'], true)) {
+                $emailService->sendReviewDecision($task, $assignee, $type);
+            }
         }
     }
 
@@ -1234,6 +1236,7 @@ class NativeTaskService
 
         $actorName = $actor?->name ?? 'Someone';
         $notificationService = app(NotificationService::class);
+        $emailService = app(EmailNotificationService::class);
 
         foreach ($recipients->unique('id') as $recipient) {
             if (! $recipient instanceof Employee) {
@@ -1255,7 +1258,7 @@ class NativeTaskService
                 metadata: ['task_id' => $task->id],
             );
 
-            SendNotificationEmailJob::dispatchNotify('review_requested', $task->id, $recipient->id, $actor?->id);
+            $emailService->sendReviewRequested($task, $recipient, $actor);
         }
     }
 
@@ -1333,7 +1336,7 @@ class NativeTaskService
                 metadata: ['task_id' => $task->id],
             );
 
-            SendNotificationEmailJob::dispatchNotify('task_assigned', $task->id, $assignee->id);
+            $emailService->sendTaskAssigned($task, $assignee);
             $notifiedIds[] = (int) $assignee->id;
             $this->lastNotifiedNames[] = $assignee->name;
         }
@@ -1379,7 +1382,7 @@ class NativeTaskService
             }
 
             // Fan-out email to project members (service excludes creator + assignees).
-            SendNotificationEmailJob::dispatchNotify('task_created', $task->id, $creator?->id);
+            $emailService->sendTaskCreated($task, $creator);
         }
 
         $this->lastNotifiedNames = array_values(array_unique($this->lastNotifiedNames));
@@ -1423,7 +1426,7 @@ class NativeTaskService
                 metadata: ['task_id' => $task->id],
             );
 
-            SendNotificationEmailJob::dispatchNotify('task_assigned', $task->id, $employee->id);
+            $emailService->sendTaskAssigned($task, $employee);
             $notifiedIds[] = (int) $employee->id;
             $this->lastNotifiedNames[] = $employee->name;
             $addedNames[] = $employee->name;
@@ -1457,6 +1460,7 @@ class NativeTaskService
         $this->lastNotifiedNames = [];
         $task->loadMissing(['assignees.user', 'creator.user']);
         $notificationService = app(NotificationService::class);
+        $emailService = app(EmailNotificationService::class);
         $actorName = $actor?->name ?? 'Someone';
         $trashUrl = TaskNav::dashboardUrlFor($actor?->user, ['trashed' => 1]);
 
@@ -1489,7 +1493,7 @@ class NativeTaskService
                 metadata: ['task_id' => $task->id],
             );
 
-            SendNotificationEmailJob::dispatchNotify('task_deleted', $task->id, $employee->id, $actor?->id);
+            $emailService->sendTaskDeleted($task, $employee, $actorName);
             $this->lastNotifiedNames[] = $employee->name;
         }
 

@@ -3,15 +3,17 @@
 namespace Tests\Feature;
 
 use App\Helpers\TaskNav;
-use App\Jobs\SendNotificationEmailJob;
 use App\Livewire\ConversationCenter\Index as ConversationCenter;
 use App\Livewire\Header\Notifications as HeaderNotifications;
+use App\Mail\CommentMentionMail;
+use App\Mail\ReviewDecisionMail;
+use App\Mail\ReviewRequestedMail;
 use App\Models\User;
 use Database\Seeders\EssentialPlatformSeeder;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Database\Seeders\UserAndEmployeeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use App\Livewire\TaskDashboard\Index as TaskDashboard;
@@ -179,7 +181,7 @@ class TaskWorkflowImprovementsTest extends TestCase
     public function test_moving_a_task_to_review_notifies_managers(): void
     {
         Queue::fake();
-        Bus::fake([SendNotificationEmailJob::class]);
+        Mail::fake();
 
         $ahmed = User::where('email', 'ahmed@thespace.app')->firstOrFail()->resolveEmployee();
         $boss = User::where('email', 'boss@thespace.app')->firstOrFail()->resolveEmployee();
@@ -207,11 +209,8 @@ class TaskWorkflowImprovementsTest extends TestCase
                 ->where('type', 'review_requested')
                 ->exists()
         );
-        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $boss, $ahmed) {
-            return $job->type === 'review_requested'
-                && $job->modelId === $task->id
-                && $job->employeeId === $boss->id
-                && $job->actorId === $ahmed->id;
+        Mail::assertSent(ReviewRequestedMail::class, function (ReviewRequestedMail $mail) use ($boss) {
+            return $mail->hasTo($boss->email);
         });
 
         $this->actingAs(User::where('email', 'boss@thespace.app')->firstOrFail());
@@ -261,7 +260,7 @@ class TaskWorkflowImprovementsTest extends TestCase
     public function test_comment_mention_creates_in_app_notification_and_queues_email(): void
     {
         Queue::fake();
-        Bus::fake([SendNotificationEmailJob::class]);
+        Mail::fake();
 
         $ahmed = User::where('email', 'ahmed@thespace.app')->firstOrFail()->resolveEmployee();
         $sara = User::where('email', 'sara@thespace.app')->firstOrFail()->resolveEmployee();
@@ -295,10 +294,8 @@ class TaskWorkflowImprovementsTest extends TestCase
                 ->exists()
         );
 
-        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($comment, $sara) {
-            return $job->type === 'comment_mention'
-                && $job->modelId === $comment->id
-                && $job->employeeId === $sara->id;
+        Mail::assertSent(CommentMentionMail::class, function (CommentMentionMail $mail) use ($sara) {
+            return $mail->hasTo($sara->email);
         });
     }
 
@@ -721,7 +718,7 @@ class TaskWorkflowImprovementsTest extends TestCase
     public function test_requesting_changes_returns_the_task_to_in_progress_and_notifies_the_assignee(): void
     {
         Queue::fake();
-        Bus::fake([SendNotificationEmailJob::class]);
+        Mail::fake();
 
         $boss = User::where('email', 'boss@thespace.app')->firstOrFail()->resolveEmployee();
         $ahmedUser = User::where('email', 'ahmed@thespace.app')->firstOrFail();
@@ -752,10 +749,8 @@ class TaskWorkflowImprovementsTest extends TestCase
                 ->where('type', 'task_changes_requested')
                 ->exists()
         );
-        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $ahmed) {
-            return $job->type === 'task_changes_requested'
-                && $job->modelId === $task->id
-                && $job->employeeId === $ahmed->id;
+        Mail::assertSent(ReviewDecisionMail::class, function (ReviewDecisionMail $mail) use ($ahmed) {
+            return $mail->hasTo($ahmed->email);
         });
 
         $this->actingAs($ahmedUser);

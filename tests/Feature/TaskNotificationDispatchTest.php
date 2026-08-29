@@ -2,19 +2,17 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\SendNotificationEmailJob;
 use App\Mail\TaskAssignedMail;
 use App\Mail\TaskCreatedMail;
 use App\Mail\TaskDeletedMail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Mail;
 use Modules\Employees\Models\Employee;
 use Modules\MultiTenancy\Models\Workspace;
 use Modules\Notifications\Models\Notification;
+use Modules\Notifications\Models\NotificationLog;
 use Modules\Notifications\Services\EmailNotificationService;
 use Modules\Projects\Models\Project;
-use Modules\Tasks\Models\Task;
 use Modules\Tasks\Services\NativeTaskService;
 use Modules\Workflows\Models\Workflow;
 use Modules\Workflows\Models\WorkflowState;
@@ -26,7 +24,6 @@ class TaskNotificationDispatchTest extends TestCase
 
     public function test_create_task_notifies_assignee_creator_and_project_members(): void
     {
-        Bus::fake([SendNotificationEmailJob::class]);
         Mail::fake();
 
         [$creator, $assignee, $teammate, $project, $state] = $this->seedProjectActors();
@@ -63,27 +60,21 @@ class TaskNotificationDispatchTest extends TestCase
                 ->exists()
         );
 
-        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $assignee) {
-            return $job->type === 'task_assigned'
-                && $job->modelId === $task->id
-                && $job->employeeId === $assignee->id;
-        });
-
-        // Fan-out job still uses creator id as the exclude list seed.
-        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $creator) {
-            return $job->type === 'task_created'
-                && $job->modelId === $task->id
-                && $job->employeeId === $creator->id;
+        Mail::assertSent(TaskAssignedMail::class, function (TaskAssignedMail $mail) use ($assignee) {
+            return $mail->hasTo($assignee->email);
         });
 
         Mail::assertSent(TaskCreatedMail::class, function (TaskCreatedMail $mail) use ($creator) {
             return $mail->hasTo($creator->email);
         });
+
+        Mail::assertSent(TaskCreatedMail::class, function (TaskCreatedMail $mail) use ($teammate) {
+            return $mail->hasTo($teammate->email);
+        });
     }
 
     public function test_create_with_self_assign_notifies_creator(): void
     {
-        Bus::fake([SendNotificationEmailJob::class]);
         Mail::fake();
 
         [$creator, , , $project, $state] = $this->seedProjectActors();
@@ -113,10 +104,8 @@ class TaskNotificationDispatchTest extends TestCase
                 ->exists()
         );
 
-        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $creator) {
-            return $job->type === 'task_assigned'
-                && $job->modelId === $task->id
-                && $job->employeeId === $creator->id;
+        Mail::assertSent(TaskAssignedMail::class, function (TaskAssignedMail $mail) use ($creator) {
+            return $mail->hasTo($creator->email);
         });
 
         Mail::assertSent(TaskCreatedMail::class, function (TaskCreatedMail $mail) use ($creator) {
@@ -128,7 +117,6 @@ class TaskNotificationDispatchTest extends TestCase
 
     public function test_update_assignees_notifies_new_assignee_and_actor(): void
     {
-        Bus::fake([SendNotificationEmailJob::class]);
         Mail::fake();
 
         [$actor, $first, $second, $project, $state] = $this->seedProjectActors();
@@ -142,7 +130,6 @@ class TaskNotificationDispatchTest extends TestCase
             'assignee_ids' => [$first->id],
         ], $actor);
 
-        Bus::fake([SendNotificationEmailJob::class]);
         Mail::fake();
 
         $service->updateAssignees($task, [$first->id, $second->id], $actor);
@@ -164,10 +151,8 @@ class TaskNotificationDispatchTest extends TestCase
                 ->exists()
         );
 
-        Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $second) {
-            return $job->type === 'task_assigned'
-                && $job->modelId === $task->id
-                && $job->employeeId === $second->id;
+        Mail::assertSent(TaskAssignedMail::class, function (TaskAssignedMail $mail) use ($second) {
+            return $mail->hasTo($second->email);
         });
 
         Mail::assertSent(TaskAssignedMail::class, function (TaskAssignedMail $mail) use ($actor) {
@@ -176,14 +161,13 @@ class TaskNotificationDispatchTest extends TestCase
                 && str_contains($mail->intro, 'You assigned');
         });
 
-        Bus::assertNotDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($first) {
-            return $job->type === 'task_assigned' && $job->employeeId === $first->id;
+        Mail::assertNotSent(TaskAssignedMail::class, function (TaskAssignedMail $mail) use ($first) {
+            return $mail->hasTo($first->email);
         });
     }
 
     public function test_delete_task_notifies_assignee_creator_and_actor_with_email(): void
     {
-        Bus::fake([SendNotificationEmailJob::class]);
         Mail::fake();
 
         [$creator, $assignee, , $project, $state] = $this->seedProjectActors();
@@ -203,7 +187,6 @@ class TaskNotificationDispatchTest extends TestCase
             'assignee_ids' => [$assignee->id],
         ], $creator);
 
-        Bus::fake([SendNotificationEmailJob::class]);
         Mail::fake();
 
         $service->deleteTask($task, $deleter);
@@ -217,23 +200,67 @@ class TaskNotificationDispatchTest extends TestCase
                     ->exists(),
                 "Expected task_deleted in-app for employee {$employeeId}"
             );
-
-            Bus::assertDispatchedSync(SendNotificationEmailJob::class, function (SendNotificationEmailJob $job) use ($task, $employeeId, $deleter) {
-                return $job->type === 'task_deleted'
-                    && $job->modelId === $task->id
-                    && $job->employeeId === $employeeId
-                    && $job->actorId === $deleter->id;
-            });
         }
-
-        (new SendNotificationEmailJob('task_deleted', $task->id, $assignee->id, $deleter->id))
-            ->handle(app(EmailNotificationService::class));
 
         Mail::assertSent(TaskDeletedMail::class, function (TaskDeletedMail $mail) use ($assignee) {
             return $mail->hasTo($assignee->email);
         });
+        Mail::assertSent(TaskDeletedMail::class, function (TaskDeletedMail $mail) use ($creator) {
+            return $mail->hasTo($creator->email);
+        });
+        Mail::assertSent(TaskDeletedMail::class, function (TaskDeletedMail $mail) use ($deleter) {
+            return $mail->hasTo($deleter->email);
+        });
 
         $this->assertTrue($task->fresh()->trashed());
+    }
+
+    public function test_should_notify_false_logs_skipped(): void
+    {
+        Mail::fake();
+
+        $workspace = Workspace::create(['name' => 'Space', 'slug' => 'skip-'.uniqid()]);
+        $employee = Employee::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'Opted Out',
+            'email' => 'optout-'.uniqid().'@thespace.app',
+            'role' => 'employee',
+            'metadata' => [
+                'email_notifications_enabled' => true,
+                'notification_preferences' => ['task_assigned' => false],
+            ],
+        ]);
+
+        $workflow = Workflow::create(['name' => 'Default', 'entity_type' => 'task', 'is_default' => true]);
+        $state = WorkflowState::create([
+            'workflow_id' => $workflow->id,
+            'name' => 'To Do',
+            'type' => 'initial',
+            'order' => 1,
+        ]);
+        $task = app(NativeTaskService::class)->createTask([
+            'title' => 'Muted assign',
+            'priority' => 'medium',
+            'current_state_id' => $state->id,
+            'assignee_ids' => [$employee->id],
+        ], $employee);
+
+        // create also sends task_created confirmation — clear and test assign path directly
+        Mail::fake();
+        NotificationLog::query()->delete();
+
+        app(EmailNotificationService::class)->sendTaskAssigned($task, $employee);
+
+        Mail::assertNothingSent();
+
+        $this->assertTrue(
+            NotificationLog::query()
+                ->where('recipient', $employee->email)
+                ->where('body', 'task_assigned')
+                ->where('status', 'skipped')
+                ->where('metadata->reason', 'pref_off:task_assigned')
+                ->exists()
+        );
     }
 
     /**

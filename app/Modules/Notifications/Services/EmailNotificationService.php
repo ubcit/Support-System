@@ -17,6 +17,7 @@ use App\Mail\TaskCompletedMail;
 use App\Mail\TaskCreatedMail;
 use App\Mail\TaskDeletedMail;
 use App\Mail\TaskDueSoonMail;
+use App\Support\EnsureTlsCaBundle;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -135,7 +136,7 @@ class EmailNotificationService
         $employees = $this->getNotifiableEmployees();
 
         foreach ($employees as $employee) {
-            if (! $this->shouldNotify($employee, 'daily_digest')) {
+            if (! $this->allowNotify($employee, 'daily_digest')) {
                 continue;
             }
 
@@ -223,7 +224,7 @@ class EmailNotificationService
      */
     public function sendTaskAssigned(Task $task, Employee $employee, ?string $intro = null): void
     {
-        if (! $this->shouldNotify($employee, 'task_assigned')) {
+        if (! $this->allowNotify($employee, 'task_assigned')) {
             return;
         }
 
@@ -242,7 +243,7 @@ class EmailNotificationService
      */
     public function sendTaskCreatedTo(Task $task, Employee $employee, ?string $creatorName = null): void
     {
-        if (! $this->shouldNotify($employee, 'task_created')) {
+        if (! $this->allowNotify($employee, 'task_created')) {
             return;
         }
 
@@ -261,7 +262,7 @@ class EmailNotificationService
      */
     public function sendTaskDeleted(Task $task, Employee $employee, ?string $actorName = null): void
     {
-        if (! $this->shouldNotify($employee, 'task_deleted')) {
+        if (! $this->allowNotify($employee, 'task_deleted')) {
             return;
         }
 
@@ -298,7 +299,7 @@ class EmailNotificationService
             if (! $employee instanceof Employee) {
                 continue;
             }
-            if (! $this->shouldNotify($employee, 'task_completed')) {
+            if (! $this->allowNotify($employee, 'task_completed')) {
                 continue;
             }
 
@@ -336,7 +337,7 @@ class EmailNotificationService
             if (in_array((int) $employee->id, $skipIds, true)) {
                 continue;
             }
-            if (! $this->shouldNotify($employee, 'task_created')) {
+            if (! $this->allowNotify($employee, 'task_created')) {
                 continue;
             }
 
@@ -351,7 +352,7 @@ class EmailNotificationService
 
     public function sendIssueAssigned(Issue $issue, Employee $employee): void
     {
-        if (! $this->shouldNotify($employee, 'issue_assigned')) {
+        if (! $this->allowNotify($employee, 'issue_assigned')) {
             return;
         }
 
@@ -367,7 +368,7 @@ class EmailNotificationService
 
     public function sendProjectMemberAdded(Project $project, Employee $employee): void
     {
-        if (! $this->shouldNotify($employee, 'project_member_added')) {
+        if (! $this->allowNotify($employee, 'project_member_added')) {
             return;
         }
 
@@ -381,7 +382,7 @@ class EmailNotificationService
 
     public function sendConversationNeedsHuman(ConversationSession $session, Employee $employee): void
     {
-        if (! $this->shouldNotify($employee, 'conversation_needs_human')) {
+        if (! $this->allowNotify($employee, 'conversation_needs_human')) {
             return;
         }
 
@@ -402,7 +403,7 @@ class EmailNotificationService
      */
     public function sendCommentMention(TaskComment $comment, Employee $employee): void
     {
-        if (! $this->shouldNotify($employee, 'comment_mention')) {
+        if (! $this->allowNotify($employee, 'comment_mention')) {
             return;
         }
 
@@ -423,7 +424,7 @@ class EmailNotificationService
 
     public function sendReviewDecision(Task $task, Employee $employee, string $type): void
     {
-        if (! $this->shouldNotify($employee, $type)) {
+        if (! $this->allowNotify($employee, $type)) {
             return;
         }
 
@@ -446,14 +447,18 @@ class EmailNotificationService
         );
     }
 
-    public function sendReviewRequested(Task $task, Employee $employee, ?int $actorId = null): void
+    public function sendReviewRequested(Task $task, Employee $employee, Employee|int|null $actor = null): void
     {
-        if (! $this->shouldNotify($employee, 'review_requested')) {
+        if (! $this->allowNotify($employee, 'review_requested')) {
             return;
         }
 
         $task->loadMissing(['project', 'assignees']);
-        $submitter = $actorId ? Employee::find($actorId) : $task->assignees->first();
+        $submitter = match (true) {
+            $actor instanceof Employee => $actor,
+            is_int($actor) => Employee::find($actor),
+            default => $task->assignees->first(),
+        };
 
         $this->sendAndLog(
             $employee,
@@ -476,7 +481,7 @@ class EmailNotificationService
 
         $notified = collect();
 
-        if ($issue->assignee && $this->shouldNotify($issue->assignee, 'new_issue')) {
+        if ($issue->assignee && $this->allowNotify($issue->assignee, 'new_issue')) {
             $this->sendAndLog(
                 $issue->assignee,
                 new NewIssueMail($issue->assignee, $issue),
@@ -491,7 +496,7 @@ class EmailNotificationService
                 if ($notified->contains($employee->id)) {
                     continue;
                 }
-                if (! $this->shouldNotify($employee, 'new_issue')) {
+                if (! $this->allowNotify($employee, 'new_issue')) {
                     continue;
                 }
 
@@ -548,30 +553,64 @@ class EmailNotificationService
 
     protected function shouldNotify(Employee $employee, string $type): bool
     {
+        return $this->skipReason($employee, $type) === null;
+    }
+
+    /**
+     * Like shouldNotify, but records a notification_logs skipped row when blocked.
+     */
+    protected function allowNotify(Employee $employee, string $type): bool
+    {
+        $reason = $this->skipReason($employee, $type);
+        if ($reason === null) {
+            return true;
+        }
+
+        $this->logSkipped($employee, $type, $reason);
+
+        return false;
+    }
+
+    protected function skipReason(Employee $employee, string $type): ?string
+    {
         if (empty($employee->email)) {
-            return false;
+            return 'no_email';
         }
 
         $meta = $employee->metadata ?? [];
 
         if (isset($meta['email_notifications_enabled']) && $meta['email_notifications_enabled'] === false) {
-            return false;
+            return 'master_off';
         }
 
         $prefs = $meta['notification_preferences'] ?? [];
         if (isset($prefs[$type]) && $prefs[$type] === false) {
-            return false;
+            return 'pref_off:'.$type;
         }
 
-        return true;
+        return null;
+    }
+
+    protected function logSkipped(Employee $employee, string $type, string $reason): void
+    {
+        NotificationLog::create([
+            'channel' => 'email',
+            'recipient' => $employee->email ?: '(empty)',
+            'subject' => 'Skipped: '.$type,
+            'body' => $type,
+            'status' => 'skipped',
+            'notifiable_type' => Employee::class,
+            'notifiable_id' => $employee->id,
+            'metadata' => ['type' => $type, 'reason' => $reason],
+        ]);
     }
 
     protected function sendAndLog(Employee $employee, $mailable, string $type, string $subject): void
     {
         try {
-            // sendNow: notification mailables must not re-queue via ShouldQueue.
-            // Event emails are dispatched sync via SendNotificationEmailJob::dispatchNotify;
-            // Mail::send() on a ShouldQueue mailable would only enqueue SendQueuedMailable.
+            EnsureTlsCaBundle::apply();
+
+            // sendNow: same path as daily digest — never re-queue via ShouldQueue.
             Mail::to($employee->email)->sendNow($mailable);
 
             NotificationLog::create([

@@ -58,12 +58,12 @@ class DiagnoseMailCommand extends Command
 
         $this->newLine();
         $this->info('Notification email rules');
-        $this->line('- Task/issue emails send in-process via SendNotificationEmailJob::dispatchNotify() (no queue worker).');
+        $this->line('- Event emails call EmailNotificationService directly (same sendNow path as digests; no queue re-find).');
         $this->line('- Digests/due-soon/overdue use the same EmailNotificationService::sendNow path.');
         $this->line('- Create/assign/delete: actor is also notified (in-app + email), including self-assign.');
         $this->line('- Events: task_assigned, task_created, task_completed, task_deleted, review_*, mentions, issues, project member.');
         $this->line('- No email on generic status/field edits (To Do → In Progress).');
-        $this->line('- Mail goes to employee.email — check notification_logs.recipient (demo @thespace.app addresses will not reach Gmail).');
+        $this->line('- Check notification_logs status: sent / failed / skipped — and recipient (demo @thespace.app will not reach Gmail).');
         $this->comment('Supervisor is still needed for WhatsApp, rules evaluation, and other queued jobs — not for notification SMTP.');
 
         $this->newLine();
@@ -96,9 +96,17 @@ class DiagnoseMailCommand extends Command
         }
 
         try {
+            $counts = DB::table('notification_logs')
+                ->selectRaw('status, count(*) as c')
+                ->groupBy('status')
+                ->pluck('c', 'status');
+            if ($counts->isNotEmpty()) {
+                $this->line('notification_logs by status: '.$counts->map(fn ($c, $s) => "{$s}={$c}")->implode(' '));
+            }
+
             $recent = DB::table('notification_logs')
                 ->orderByDesc('id')
-                ->limit(5)
+                ->limit(10)
                 ->get(['id', 'recipient', 'subject', 'body', 'status', 'created_at']);
 
             if ($recent->isNotEmpty()) {

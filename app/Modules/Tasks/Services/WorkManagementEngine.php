@@ -2,13 +2,13 @@
 
 namespace Modules\Tasks\Services;
 
-use App\Jobs\SendNotificationEmailJob;
 use Illuminate\Support\Facades\Log;
 use Modules\AI\DTOs\AIResult;
 use Modules\Communication\Services\WorkCommunicationService;
 use Modules\Employees\Models\Employee;
 use Modules\Issues\Models\Issue;
 use Modules\MultiTenancy\Models\Workspace;
+use Modules\Notifications\Services\EmailNotificationService;
 use Modules\Tasks\Events\TaskCreated;
 use Modules\Tasks\Models\Task;
 use Modules\Workflows\Services\WorkflowManager;
@@ -77,7 +77,7 @@ class WorkManagementEngine
 
             $this->logTimeline($task, 'assigned', $logMsg, $employee->id);
 
-            SendNotificationEmailJob::dispatchNotify('task_assigned', $task->id, $employee->id);
+            app(EmailNotificationService::class)->sendTaskAssigned($task, $employee);
         } else {
             $this->logTimeline($task, 'needs_assignment', 'Added to unassigned queue.');
         }
