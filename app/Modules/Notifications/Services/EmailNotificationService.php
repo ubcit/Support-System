@@ -608,10 +608,7 @@ class EmailNotificationService
     protected function sendAndLog(Employee $employee, $mailable, string $type, string $subject): void
     {
         try {
-            EnsureTlsCaBundle::apply();
-
-            // sendNow: same path as daily digest — never re-queue via ShouldQueue.
-            Mail::to($employee->email)->sendNow($mailable);
+            $this->sendMailableNow($employee->email, $mailable);
 
             NotificationLog::create([
                 'channel' => 'email',
@@ -638,5 +635,36 @@ class EmailNotificationService
                 'metadata' => ['type' => $type, 'error' => $e->getMessage()],
             ]);
         }
+    }
+
+    /**
+     * sendNow with CA injection; one purge+retry on transient STARTTLS/SSL handshake failures.
+     */
+    protected function sendMailableNow(string $email, $mailable): void
+    {
+        EnsureTlsCaBundle::applyToMailer(Mail::mailer());
+
+        try {
+            Mail::to($email)->sendNow($mailable);
+        } catch (\Throwable $e) {
+            if (! $this->isTransientSmtpTlsFailure($e)) {
+                throw $e;
+            }
+
+            Log::warning("Retrying SMTP after TLS failure to {$email}: {$e->getMessage()}");
+
+            Mail::purge();
+            EnsureTlsCaBundle::applyToMailer(Mail::mailer());
+            Mail::to($email)->sendNow($mailable);
+        }
+    }
+
+    protected function isTransientSmtpTlsFailure(\Throwable $e): bool
+    {
+        $message = $e->getMessage();
+
+        return str_contains($message, 'STARTTLS')
+            || str_contains($message, 'stream_socket_enable_crypto')
+            || str_contains($message, 'SSL operation');
     }
 }

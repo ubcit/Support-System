@@ -133,8 +133,11 @@ class NotificationEmailDeliveryTest extends TestCase
     public function test_mail_diagnose_sample_fails_when_send_and_log_records_failed(): void
     {
         $this->seedAssignedTask();
+        $this->unfakeMail();
+
         $to = 'diagnose-fail-'.uniqid().'@example.com';
 
+        Mail::shouldReceive('mailer')->andReturn($this->stubMailerWithoutSmtpTransport());
         Mail::shouldReceive('raw')->once()->andReturnNull();
 
         $pending = Mockery::mock();
@@ -143,6 +146,7 @@ class NotificationEmailDeliveryTest extends TestCase
             ->andThrow(new RuntimeException('Simulated SMTP failure'));
 
         Mail::shouldReceive('to')->once()->with($to)->andReturn($pending);
+        Mail::shouldReceive('purge')->never();
 
         $exit = Artisan::call('mail:diagnose', [
             '--send' => $to,
@@ -162,6 +166,64 @@ class NotificationEmailDeliveryTest extends TestCase
                 ->where('status', 'failed')
                 ->exists()
         );
+    }
+
+    public function test_send_task_assigned_retries_once_after_starttls_failure(): void
+    {
+        [$assignee, $task] = $this->seedAssignedTask();
+        $this->unfakeMail();
+
+        Mail::shouldReceive('mailer')->andReturn($this->stubMailerWithoutSmtpTransport());
+        Mail::shouldReceive('purge')->once();
+
+        $failing = Mockery::mock();
+        $failing->shouldReceive('sendNow')
+            ->once()
+            ->andThrow(new RuntimeException(
+                'Unable to connect with STARTTLS: stream_socket_enable_crypto(): SSL operation failed'
+            ));
+
+        $succeeding = Mockery::mock();
+        $succeeding->shouldReceive('sendNow')->once()->andReturnNull();
+
+        Mail::shouldReceive('to')
+            ->twice()
+            ->with($assignee->email)
+            ->andReturn($failing, $succeeding);
+
+        app(EmailNotificationService::class)->sendTaskAssigned($task, $assignee);
+
+        $this->assertTrue(
+            NotificationLog::query()
+                ->where('recipient', $assignee->email)
+                ->where('body', 'task_assigned')
+                ->where('status', 'sent')
+                ->exists()
+        );
+    }
+
+    /**
+     * Concrete Mailer mock that skips EnsureTlsCaBundle SMTP stream injection.
+     */
+    protected function stubMailerWithoutSmtpTransport(): \Illuminate\Mail\Mailer
+    {
+        $mailer = Mockery::mock(\Illuminate\Mail\Mailer::class);
+        $mailer->shouldReceive('getSymfonyTransport')->andReturn(
+            Mockery::mock(\Symfony\Component\Mailer\Transport\TransportInterface::class)
+        );
+
+        return $mailer;
+    }
+
+    /**
+     * Restore the real Mail manager after seed helpers call Mail::fake().
+     */
+    protected function unfakeMail(): void
+    {
+        $root = Mail::getFacadeRoot();
+        if ($root instanceof \Illuminate\Support\Testing\Fakes\MailFake) {
+            Mail::swap($root->manager);
+        }
     }
 
     /**

@@ -38,9 +38,14 @@ class EnsureTlsCaBundle
 
     /**
      * Force the SMTP transport to verify against a known CA file.
+     * No-ops for MailFake / non-SMTP mailers (tests and log/array drivers).
      */
-    public static function applyToMailer(Mailer $mailer): void
+    public static function applyToMailer(object $mailer): void
     {
+        if (! $mailer instanceof Mailer) {
+            return;
+        }
+
         $ca = self::apply();
         if ($ca === null || ! method_exists($mailer, 'getSymfonyTransport')) {
             return;
@@ -62,8 +67,24 @@ class EnsureTlsCaBundle
             'verify_peer' => true,
             'verify_peer_name' => true,
             'allow_self_signed' => false,
+            // Hostinger (and many providers) retired TLS 1.0/1.1; avoid negotiating them.
+            'crypto_method' => self::tls12PlusCryptoMethod(),
         ]);
         $stream->setStreamOptions($options);
+    }
+
+    /**
+     * Bitmask for TLS 1.2+ only (Symfony's default still includes TLSv1_1).
+     */
+    public static function tls12PlusCryptoMethod(): int
+    {
+        $method = \STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT;
+
+        if (defined('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT')) {
+            $method |= constant('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT');
+        }
+
+        return $method;
     }
 
     public static function resolve(?string $explicit = null): ?string

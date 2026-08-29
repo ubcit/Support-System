@@ -98,27 +98,29 @@ Prefer a transactional SMTP provider (SendGrid, Mailgun, Amazon SES, or Google W
 
 ```env
 MAIL_MAILER=smtp
-MAIL_SCHEME=null
-MAIL_HOST=smtp.your-provider.com
-MAIL_PORT=587
+# Hostinger (recommended): implicit TLS
+MAIL_SCHEME=smtps
+MAIL_HOST=smtp.hostinger.com
+MAIL_PORT=465
 MAIL_USERNAME=...
 MAIL_PASSWORD="..."
 MAIL_FROM_ADDRESS=noreply@your-domain.com
 MAIL_FROM_NAME="${APP_NAME}"
 ```
 
-Laravel 13 ignores `MAIL_ENCRYPTION`. Use `MAIL_SCHEME=null` + port **587** (STARTTLS), or `MAIL_SCHEME=smtps` + port **465**. Quote passwords that contain `=` / `^` / `$`.
+Laravel 13 ignores `MAIL_ENCRYPTION`. Prefer **`MAIL_SCHEME=smtps` + port 465** for Hostinger (avoids STARTTLS handshake failures). Alternative: `MAIL_SCHEME=null` + port **587** (STARTTLS). Quote passwords that contain `=` / `^` / `$`.
 
 Checklist:
 
 - `MAIL_MAILER` must **not** be `log` or `array` in production (those never leave the server).
 - From-address domain needs SPF/DKIM at your DNS provider.
-- GCP VPC / firewall must allow outbound TCP **587** (or **465**) from the VM.
+- GCP VPC / firewall must allow outbound TCP **465** (and **587** if you keep STARTTLS).
 - Notification SMTP (`SendNotificationEmailJob::dispatchNotify`, digests) sends in-process — no worker required. Supervisor + `QUEUE_CONNECTION=redis` are still required for WhatsApp, rules, and other queued jobs.
-- After changing `.env` mail vars: `php artisan config:cache` then `php artisan queue:restart`.
+- After changing `.env` mail vars: `php artisan config:cache` then reload PHP-FPM (`sudo systemctl reload php8.3-fpm` or your version) and `php artisan queue:restart`.
 - CLI PHP must trust CAs (`openssl.cafile` set, or `ca-certificates` installed). Missing CA → `certificate verify failed` on SMTP.
 - App auto-detects common CA paths via `EnsureTlsCaBundle`; override with `MAIL_CAFILE` if needed.
-- On Ubuntu if STARTTLS still fails: `sudo apt install -y ca-certificates` then set `MAIL_CAFILE=/etc/ssl/certs/ca-certificates.crt` and `php artisan config:cache`.
+- If you still see `Unable to connect with STARTTLS` / `stream_socket_enable_crypto`, switch to 465/`smtps` as above (do not stay on 587).
+- On Ubuntu if TLS still fails: `sudo apt install -y ca-certificates` then set `MAIL_CAFILE=/etc/ssl/certs/ca-certificates.crt` and `php artisan config:cache`.
 
 Smoke test (on the VM):
 

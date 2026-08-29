@@ -310,5 +310,13 @@ class DiagnoseMailCommand extends Command
         if (str_contains($message, 'Connection could not be established')) {
             $this->warn('Try MAIL_PORT=465 and MAIL_SCHEME=smtps, and allow outbound TCP 465/587.');
         }
+        if (
+            str_contains($message, 'STARTTLS')
+            || str_contains($message, 'stream_socket_enable_crypto')
+            || str_contains($message, 'SSL operation')
+        ) {
+            $this->warn('Hostinger: prefer MAIL_PORT=465 and MAIL_SCHEME=smtps (implicit TLS) over 587 STARTTLS.');
+            $this->comment('Then: php artisan config:cache && sudo systemctl reload php*-fpm (or restart php-fpm).');
+        }
     }
 }
