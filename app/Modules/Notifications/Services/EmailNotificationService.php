@@ -47,13 +47,14 @@ class EmailNotificationService
                 continue;
             }
 
-            $this->sendAndLog(
+            if ($this->sendAndLog(
                 $employee,
                 new OverdueTaskMail($employee, $overdueTasks),
                 'overdue_tasks',
                 $overdueTasks->count().' overdue tasks',
-            );
-            $sent++;
+            )) {
+                $sent++;
+            }
         }
 
         return $sent;
@@ -80,13 +81,14 @@ class EmailNotificationService
                 continue;
             }
 
-            $this->sendAndLog(
+            if ($this->sendAndLog(
                 $employee,
                 new TaskDueSoonMail($employee, $dueSoonTasks),
                 'due_soon',
                 $dueSoonTasks->count().' tasks due soon',
-            );
-            $sent++;
+            )) {
+                $sent++;
+            }
         }
 
         return $sent;
@@ -113,13 +115,14 @@ class EmailNotificationService
                 continue;
             }
 
-            $this->sendAndLog(
+            if ($this->sendAndLog(
                 $employee,
                 new ProjectDeadlineMail($employee, $projects),
                 'project_deadline',
                 $projects->count().' project deadlines approaching',
-            );
-            $sent++;
+            )) {
+                $sent++;
+            }
         }
 
         return $sent;
@@ -127,16 +130,27 @@ class EmailNotificationService
 
     /**
      * Send daily digest emails to all employees.
+     *
+     * @return array{sent: int, failed: int, skipped_pref: int, skipped_empty: int, candidates: int}
      */
-    public function sendDailyDigests(): int
+    public function sendDailyDigests(): array
     {
-        $sent = 0;
+        $result = [
+            'sent' => 0,
+            'failed' => 0,
+            'skipped_pref' => 0,
+            'skipped_empty' => 0,
+            'candidates' => 0,
+        ];
         $listLimit = 10;
 
         $employees = $this->getNotifiableEmployees();
+        $result['candidates'] = $employees->count();
 
         foreach ($employees as $employee) {
             if (! $this->allowNotify($employee, 'daily_digest')) {
+                $result['skipped_pref']++;
+
                 continue;
             }
 
@@ -188,6 +202,8 @@ class EmailNotificationService
                 && $openIssuesCount === 0
                 && $upcomingDeadlines->isEmpty()
             ) {
+                $result['skipped_empty']++;
+
                 continue;
             }
 
@@ -199,7 +215,7 @@ class EmailNotificationService
                 'list_limit' => $listLimit,
             ];
 
-            $this->sendAndLog(
+            if ($this->sendAndLog(
                 $employee,
                 new DailyDigestMail(
                     $employee,
@@ -212,11 +228,14 @@ class EmailNotificationService
                 ),
                 'daily_digest',
                 'Daily digest',
-            );
-            $sent++;
+            )) {
+                $result['sent']++;
+            } else {
+                $result['failed']++;
+            }
         }
 
-        return $sent;
+        return $result;
     }
 
     /**
@@ -605,7 +624,7 @@ class EmailNotificationService
         ]);
     }
 
-    protected function sendAndLog(Employee $employee, $mailable, string $type, string $subject): void
+    protected function sendAndLog(Employee $employee, $mailable, string $type, string $subject): bool
     {
         try {
             $this->sendMailableNow($employee->email, $mailable);
@@ -621,6 +640,8 @@ class EmailNotificationService
                 'sent_at' => now(),
                 'metadata' => ['type' => $type],
             ]);
+
+            return true;
         } catch (\Throwable $e) {
             Log::error("Failed to send {$type} email to {$employee->email}: {$e->getMessage()}");
 
@@ -634,6 +655,8 @@ class EmailNotificationService
                 'notifiable_id' => $employee->id,
                 'metadata' => ['type' => $type, 'error' => $e->getMessage()],
             ]);
+
+            return false;
         }
     }
 

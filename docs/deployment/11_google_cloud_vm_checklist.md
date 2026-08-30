@@ -191,17 +191,29 @@ Logs: `storage/logs/worker.log`, `storage/logs/shadow-worker.log`.
 
 ## 5. Scheduler cron
 
+Digests and due-soon emails run **in-process** when the scheduler fires — they do **not** need Supervisor. They **do** need a cron entry that runs every minute.
+
 ```bash
-sudo crontab -u www-data -e
+# Use the real app user/path on this VM (example for this project):
+sudo crontab -u almukhls -e
+# or: sudo crontab -u www-data -e
 ```
 
-Add:
+Add (adjust the `cd` path to your deploy root):
 
 ```
-* * * * * cd /var/www/the-space-management && php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /home/almukhls/public_html/Support-System && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-See [`06_scheduler_configuration.md`](06_scheduler_configuration.md). Scheduled notification commands still need the queue workers running.
+Verify:
+
+```bash
+php artisan schedule:list
+php artisan notifications:daily-digest
+ls -la storage/logs/scheduler-digest.log
+```
+
+See [`06_scheduler_configuration.md`](06_scheduler_configuration.md).
 
 ## 6. Nginx + SSL
 

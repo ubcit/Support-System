@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Mail\TaskAssignedMail;
 use App\Support\EnsureTlsCaBundle;
 use Illuminate\Console\Command;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Modules\Employees\Models\Employee;
@@ -57,6 +58,12 @@ class DiagnoseMailCommand extends Command
             $this->error('MAIL_MAILER is not smtp. Emails will not leave the server (log/array).');
         }
 
+        $smtpHost = (string) config('mail.mailers.smtp.host');
+        $smtpPort = (int) config('mail.mailers.smtp.port');
+        if (str_contains(strtolower($smtpHost), 'hostinger') && $smtpPort === 587) {
+            $this->warn('Hostinger on port 587 / STARTTLS is unreliable here. Set MAIL_PORT=465 and MAIL_SCHEME=smtps, then config:cache + reload php-fpm.');
+        }
+
         $this->newLine();
         $this->info('Notification email rules');
         $this->line('- Event emails call EmailNotificationService directly (same sendNow path as digests; no queue re-find).');
@@ -66,7 +73,46 @@ class DiagnoseMailCommand extends Command
         $this->line('- No email on generic status/field edits (To Do → In Progress).');
         $this->line('- Check notification_logs status: sent / failed / skipped — and recipient (demo @thespace.app will not reach Gmail).');
         $this->line('- Failed rows store the exception in metadata.error (also in storage/logs/laravel.log).');
+        $this->line('- Daily digest runs at 07:00 '.config('app.timezone').' via cron → php artisan schedule:run (not Supervisor).');
         $this->comment('Supervisor is still needed for WhatsApp, rules evaluation, and other queued jobs — not for notification SMTP.');
+
+        $this->newLine();
+        $this->info('Scheduler');
+        $this->line('app.timezone: '.config('app.timezone').' | now: '.now()->toDateTimeString());
+        try {
+            $schedule = app(Schedule::class);
+            foreach ($schedule->events() as $event) {
+                $summary = method_exists($event, 'getSummaryForDisplay')
+                    ? (string) $event->getSummaryForDisplay()
+                    : (string) ($event->command ?? $event->description ?? 'event');
+                if (
+                    ! str_contains($summary, 'daily-digest')
+                    && ! str_contains($summary, 'due-soon')
+                    && ! str_contains($summary, 'overdue')
+                    && ! str_contains($summary, 'project-deadlines')
+                ) {
+                    continue;
+                }
+                $next = method_exists($event, 'nextRunDate')
+                    ? $event->nextRunDate()->format('Y-m-d H:i:s T')
+                    : 'unknown';
+                $this->line("{$summary} — next {$next}");
+            }
+        } catch (Throwable $e) {
+            $this->warn('Could not list schedule: '.$e->getMessage());
+        }
+        $this->comment('Cron must run every minute from the app directory, e.g.');
+        $this->comment('  * * * * * cd '.base_path().' && php artisan schedule:run >> /dev/null 2>&1');
+        $this->comment('Manual digest now: php artisan notifications:daily-digest');
+        $digestLog = storage_path('logs/scheduler-digest.log');
+        if (is_readable($digestLog)) {
+            $tail = @file($digestLog);
+            if (is_array($tail) && $tail !== []) {
+                $this->line('Last scheduler-digest.log line: '.trim((string) end($tail)));
+            }
+        } else {
+            $this->warn('No storage/logs/scheduler-digest.log yet — cron may not be calling schedule:run.');
+        }
 
         $this->newLine();
         $this->info('Queue health');

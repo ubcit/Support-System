@@ -13,8 +13,12 @@ sudo crontab -u www-data -e
 Add the following line to the end of the file:
 
 ```bash
-* * * * * cd /var/www/the-space-management && php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /home/almukhls/public_html/Support-System && php artisan schedule:run >> /dev/null 2>&1
 ```
+
+On other hosts the path may be `/var/www/the-space-management` — use the directory that contains `artisan`.
+
+Daily digest: `07:00` in `config('app.timezone')` (Asia/Baghdad). Output appends to `storage/logs/scheduler-digest.log`.
 
 ## 2. Important Scheduled Tasks (Phase 13)
 
