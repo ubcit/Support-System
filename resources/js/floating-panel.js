@@ -2,6 +2,21 @@
  * Shared Alpine helper for dropdowns that must escape overflow containers
  * (tables, board columns, etc.) via body teleport + fixed positioning.
  */
+
+let activePanel = null;
+
+function hiddenPanelStyle(width, zIndex) {
+    return {
+        position: 'fixed',
+        top: '0px',
+        left: '0px',
+        width: `${width}px`,
+        zIndex,
+        visibility: 'hidden',
+        pointerEvents: 'none',
+    };
+}
+
 export function createFloatingPanelState(config = {}) {
     const align = config.align || 'left';
     const width = config.width || 224;
@@ -13,12 +28,18 @@ export function createFloatingPanelState(config = {}) {
 
     return {
         open: false,
-        panelStyle: {},
+        panelStyle: hiddenPanelStyle(width, zIndex),
         _reposition: null,
         _missingTriggerSince: null,
         _missingTriggerTimer: null,
 
         openPanel(afterOpen) {
+            if (activePanel && activePanel !== this) {
+                activePanel.closePanel();
+            }
+            activePanel = this;
+
+            this.updatePosition();
             this.open = true;
             this._missingTriggerSince = null;
             this.clearMissingTriggerTimer();
@@ -26,13 +47,17 @@ export function createFloatingPanelState(config = {}) {
                 this.updatePosition();
                 this.bindReposition();
                 if (typeof afterOpen === 'function') {
-                    afterOpen();
+                    this.$nextTick(() => this.runAfterOpen(afterOpen));
                 }
             });
         },
 
         closePanel() {
+            if (activePanel === this) {
+                activePanel = null;
+            }
             this.open = false;
+            this.panelStyle = hiddenPanelStyle(width, zIndex);
             this._missingTriggerSince = null;
             this.clearMissingTriggerTimer();
             this.unbindReposition();
@@ -43,6 +68,15 @@ export function createFloatingPanelState(config = {}) {
                 this.closePanel();
             } else {
                 this.openPanel(afterOpen);
+            }
+        },
+
+        runAfterOpen(afterOpen) {
+            const x = window.scrollX;
+            const y = window.scrollY;
+            afterOpen();
+            if (window.scrollX !== x || window.scrollY !== y) {
+                window.scrollTo(x, y);
             }
         },
 
@@ -123,6 +157,8 @@ export function createFloatingPanelState(config = {}) {
                 left: `${left}px`,
                 width: `${width}px`,
                 zIndex,
+                visibility: 'visible',
+                pointerEvents: 'auto',
             };
         },
 
@@ -151,6 +187,9 @@ export function createFloatingPanelState(config = {}) {
         },
 
         destroy() {
+            if (activePanel === this) {
+                activePanel = null;
+            }
             this.unbindReposition();
         },
     };

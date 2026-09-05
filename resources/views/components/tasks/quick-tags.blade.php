@@ -38,7 +38,7 @@
             <button
                 type="button"
                 x-ref="trigger"
-                @click.stop="togglePanel(() => $refs.tagSearch?.focus())"
+                @click.stop="togglePanel(() => $refs.tagSearch?.focus({ preventScroll: true }))"
                 class="inline-flex h-5 w-5 items-center justify-center rounded-md border border-dashed border-gray-300 text-gray-400 hover:border-brand-400 hover:text-brand-500 dark:border-gray-600 dark:hover:border-brand-400"
                 title="Add tag"
                 aria-label="Add tag"
@@ -52,7 +52,7 @@
                     @click.outside="onOutside($event); if (!open) search = ''"
                     x-cloak
                     :style="panelStyle"
-                    class="rounded-xl border border-gray-200 bg-white p-2 shadow-xl dark:border-gray-700 dark:bg-gray-900"
+                    class="fixed rounded-xl border border-gray-200 bg-white p-2 shadow-xl dark:border-gray-700 dark:bg-gray-900"
                 >
                     <input
                         type="text"

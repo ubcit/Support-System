@@ -1692,6 +1692,8 @@
                 :tag-models="$tagModels"
                 :selected-ids="$formTagIds"
                 :selected-color="$formNewTagColor"
+                open-model="showCreateModal"
+                :reset-key="$formDraftResetKey"
             />
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <x-form.date-picker wire:model="formDueDate" label="Due Date" placeholder="Pick due date" allow-clear />
@@ -1719,6 +1721,7 @@
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Title</label>
                 <input wire:model="formTitle" class="h-11 w-full rounded-lg border border-gray-300 px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                @error('formTitle')<p class="mt-1 text-sm text-error-500">{{ $message }}</p>@enderror
             </div>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <x-form.select.searchable wire:model="formProjectId" label="Project" :options="$projects" placeholder="Select project" empty-option="No project" search-placeholder="Search projects..." />
@@ -1753,6 +1756,8 @@
                 :tag-models="$tagModels"
                 :selected-ids="$formTagIds"
                 :selected-color="$formNewTagColor"
+                open-model="showEditModal"
+                :reset-key="$formDraftResetKey"
             />
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Description</label>

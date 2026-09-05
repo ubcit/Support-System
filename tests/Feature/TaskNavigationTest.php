@@ -157,7 +157,9 @@ class TaskNavigationTest extends TestCase
             ->assertSee('The list stays open')
             ->call('closeEditModal')
             ->assertSet('showEditModal', false)
-            ->assertSet('editingTaskId', null);
+            ->assertSet('editingTaskId', null)
+            ->assertSet('formNewTagName', '')
+            ->assertSet('formNewTagColor', '#6B7280');
     }
 
     public function test_deleting_a_task_refreshes_the_tasks_sidebar(): void

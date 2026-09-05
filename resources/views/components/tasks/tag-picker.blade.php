@@ -17,6 +17,8 @@
     'newColorModel' => 'formNewTagColor',
     'selectedColor' => '#6B7280',
     'selectedIds' => [],
+    'openModel' => null,
+    'resetKey' => 0,
 ])
 
 @php
@@ -33,7 +35,8 @@
     })->values()->all();
 
     $selected = collect($selectedIds)->map(fn ($id) => (string) $id)->values()->all();
-    $pickerKey = 'tag-picker-'.md5(json_encode($optionList).'|'.implode(',', $selected));
+    $defaultColor = $colors[0] ?? '#6B7280';
+    $pickerKey = 'tag-picker-'.md5(json_encode($optionList).'|'.implode(',', $selected).'|'.$resetKey);
     $inputClass = $size === 'sm' ? 'h-7 text-xs' : 'h-8 text-sm';
 @endphp
 
@@ -47,6 +50,19 @@
         selected: @entangle($idsModel),
         newColor: @entangle($newColorModel).live,
         createMethod: @js($createMethod),
+        defaultColor: @js($defaultColor),
+        resetDraft() {
+            this.search = '';
+            this.open = false;
+            this.newColor = this.defaultColor;
+        },
+        init() {
+            const openModel = @js($openModel);
+            if (!openModel || typeof this.$wire?.$watch !== 'function') return;
+            this.$wire.$watch(openModel, (value) => {
+                if (!value) this.resetDraft();
+            });
+        },
         get selectedValues() {
             return Array.isArray(this.selected) ? this.selected.map(String) : [];
         },

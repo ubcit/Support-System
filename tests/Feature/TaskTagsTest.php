@@ -254,4 +254,33 @@ class TaskTagsTest extends TestCase
 
         $this->assertFalse($task->fresh()->tags->contains('id', $existing->id));
     }
+
+    public function test_edit_modal_resets_tag_draft_fields_on_close(): void
+    {
+        $boss = User::where('email', 'boss@thespace.app')->firstOrFail();
+        $actor = $boss->resolveEmployee();
+        $workspaceId = $actor->workspace_id ?? Workspace::query()->value('id');
+        $todo = WorkflowState::where('name', 'To Do')->firstOrFail();
+
+        $task = Task::factory()->create([
+            'title' => 'Edit tag draft reset',
+            'workspace_id' => $workspaceId,
+            'current_state_id' => $todo->id,
+            'workflow_id' => $todo->workflow_id,
+            'created_by' => $actor->id,
+        ]);
+
+        Livewire::actingAs($boss)
+            ->test(\App\Livewire\TaskDashboard\Index::class)
+            ->call('openEditModal', $task->id)
+            ->set('formNewTagName', 'Should not stick')
+            ->set('formNewTagColor', '#8B5CF6')
+            ->call('closeEditModal')
+            ->assertSet('showEditModal', false)
+            ->assertSet('formNewTagName', '')
+            ->assertSet('formNewTagColor', '#6B7280')
+            ->call('openEditModal', $task->id)
+            ->assertSet('formNewTagName', '')
+            ->assertSet('formNewTagColor', '#6B7280');
+    }
 }

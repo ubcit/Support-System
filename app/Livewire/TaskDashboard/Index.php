@@ -582,6 +582,8 @@ class Index extends Component
 
     public string $formNewTagColor = '#6B7280';
 
+    public int $formDraftResetKey = 0;
+
     public ?string $formDueDate = null;
 
     public ?string $formStartDate = null;
@@ -609,6 +611,9 @@ class Index extends Component
 
     public function openEditModal(int $taskId): void
     {
+        $this->formNewTagName = '';
+        $this->formNewTagColor = '#6B7280';
+        $this->formDraftResetKey++;
         $this->showEditModal = true;
         $this->editingTaskId = $taskId;
 
@@ -811,6 +816,7 @@ class Index extends Component
         $this->formTagIds = [];
         $this->formNewTagName = '';
         $this->formNewTagColor = '#6B7280';
+        $this->formDraftResetKey++;
         $this->formDueDate = null;
         $this->formStartDate = null;
         $this->formDescription = '';
